@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FastProxy - 智能分流版",
-  "version": "4.3",
+  "version": "4.3.0",
   "description": "图标实时显示代理状态",
   "permissions": [
     "proxy",
@@ -14,4 +14,5 @@
   "action": {
     "default_popup": "popup.html"
   }
+
 }
