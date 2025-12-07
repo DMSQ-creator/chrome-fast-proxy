@@ -1,276 +1,214 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const GFWLIST_URL = 'https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt';
-  
   const els = {
-    host: document.getElementById('host'),
-    port: document.getElementById('port'),
-    scheme: document.getElementById('scheme'),
-    ruleStatus: document.getElementById('ruleStatus'),
-    statusSpan: document.getElementById('currentMode'),
-    quickBox: document.getElementById('quickBox'),
-    domainText: document.getElementById('domainText'),
-    addDomainBtn: document.getElementById('addDomainBtn'),
+    currentDomain: document.getElementById('currentDomain'),
     routingStatus: document.getElementById('routingStatus'),
-    manualInput: document.getElementById('manualInput'),
-    manualAddBtn: document.getElementById('manualAddBtn'),
-    tagsList: document.getElementById('tagsList'),
-    userCount: document.getElementById('userCount')
+    actionBtn: document.getElementById('actionBtn'),
+    domainArea: document.getElementById('domainArea'),
+    btnAuto: document.getElementById('btnAuto'),
+    btnProxy: document.getElementById('btnProxy'),
+    btnDirect: document.getElementById('btnDirect'),
+    openSettings: document.getElementById('openSettings')
   };
 
-  let currentDomain = "";
+  let currentDomainStr = "";
   let cachedUserRules = [];
   let cachedGfwDomains = [];
-  let currentMode = "direct";
+  let currentMode = "";
 
-  chrome.storage.local.get(['host', 'port', 'scheme', 'ruleCount', 'lastUpdate', 'userRules', 'gfwDomains'], (items) => {
-    if (items.host) els.host.value = items.host;
-    if (items.port) els.port.value = items.port;
-    if (items.scheme) els.scheme.value = items.scheme;
+  // 1. 初始化数据
+  chrome.storage.local.get(['userRules', 'gfwDomains'], (items) => {
     cachedUserRules = items.userRules || [];
     cachedGfwDomains = items.gfwDomains || [];
+    initUI();
+  });
+
+  // 2. 打开设置页 (修复版)
+  els.openSettings.addEventListener('click', () => {
+    // 尝试使用 Chrome 标准 API 打开
+    // 如果 manifest 没配置好或者报错，catch 会捕获错误并执行备用方案
+    chrome.runtime.openOptionsPage().catch((err) => {
+      console.error("无法通过 API 打开设置页，尝试直接跳转", err);
+      // 备用方案：直接打开 html 文件
+      window.open(chrome.runtime.getURL('options.html'));
+    });
+  });
+
+  function initUI() {
+    // 获取当前模式
+    chrome.proxy.settings.get({}, (details) => {
+      currentMode = details.value.mode;
+      updateModeButtons(currentMode);
+      detectCurrentTab();
+    });
+  }
+
+  // 3. 模式切换
+  els.btnAuto.addEventListener('click', () => setMode('pac_script'));
+  els.btnProxy.addEventListener('click', () => setMode('fixed_servers'));
+  els.btnDirect.addEventListener('click', () => setMode('direct'));
+
+  function setMode(mode) {
+    // 简单的模式切换，不需要重新生成 PAC，因为 PAC 内容没变
+    let config = { mode: mode };
     
-    renderTags(); 
-    updateRuleStatus(items.ruleCount, items.lastUpdate);
-    checkCurrentMode(() => { detectCurrentTab(); });
-  });
-
-  // --- 路由状态检测 ---
-  function checkRoutingLogic() {
-    if (!currentDomain) return;
-    let statusText = "", statusClass = "";
-
-    if (currentMode === 'direct') {
-        statusText = "⚪ 当前策略：直接连接 (全局直连)";
-        statusClass = "status-direct";
-    } else if (currentMode === 'fixed_servers') {
-        statusText = "🟢 当前策略：代理连接 (全局代理)";
-        statusClass = "status-proxy";
-    } else if (currentMode === 'pac_script') {
-        const inUser = cachedUserRules.includes(currentDomain);
-        let inGfw = cachedGfwDomains.includes(currentDomain);
-        if (!inGfw) {
-            const parts = currentDomain.split('.');
-            if (parts.length > 1) {
-                const root = parts.slice(-2).join('.');
-                if (cachedGfwDomains.includes(root)) inGfw = true;
-            }
-        }
-        if (inUser || inGfw) {
-            statusText = `🟢 当前策略：代理连接 (命中规则)`;
-            statusClass = "status-proxy";
-        } else {
-            statusText = "⚪ 当前策略：直接连接 (未命中规则)";
-            statusClass = "status-direct";
-        }
+    if (mode === 'pac_script') {
+        // 读取已有的 PAC 设置重新应用，防止丢失
+        chrome.storage.local.get(['pacScriptData'], (items) => {
+             if(items.pacScriptData) {
+                 config.pacScript = { data: items.pacScriptData };
+                 chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => initUI());
+             } else {
+                 // 如果还没有 PAC 数据，引导去设置页
+                 alert("PAC 脚本未生成，请前往设置页面更新规则！");
+                 chrome.runtime.openOptionsPage();
+             }
+        });
+        return;
+    } else if (mode === 'fixed_servers') {
+        // 读取代理服务器设置
+        chrome.storage.local.get(['host', 'port', 'scheme'], (items) => {
+            const scheme = items.scheme ? items.scheme.toLowerCase() : 'socks5';
+            config.rules = {
+                singleProxy: { scheme: scheme, host: items.host||'127.0.0.1', port: parseInt(items.port||7890) },
+                bypassList: ["<local>"]
+            };
+            chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => initUI());
+        });
+        return;
     }
-    els.routingStatus.textContent = statusText;
-    els.routingStatus.className = `routing-badge ${statusClass}`;
+
+    chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => initUI());
   }
 
-  // --- 标签与规则操作 ---
-  function renderTags() {
-    els.tagsList.innerHTML = "";
-    els.userCount.textContent = cachedUserRules.length;
-    if (cachedUserRules.length === 0) {
-      els.tagsList.innerHTML = '<div class="empty-tip">暂无自定义规则</div>';
-      return;
-    }
-    [...cachedUserRules].reverse().forEach(domain => {
-      const tag = document.createElement('div');
-      tag.className = 'tag';
-      tag.innerHTML = `<span>${domain}</span><span class="tag-close">×</span>`;
-      tag.querySelector('.tag-close').addEventListener('click', () => removeDomain(domain));
-      els.tagsList.appendChild(tag);
-    });
+  function updateModeButtons(mode) {
+    // 移除所有 active
+    [els.btnAuto, els.btnProxy, els.btnDirect].forEach(b => b.classList.remove('active'));
+    // 添加 active
+    if (mode === 'pac_script') els.btnAuto.classList.add('active');
+    else if (mode === 'fixed_servers') els.btnProxy.classList.add('active');
+    else if (mode === 'direct') els.btnDirect.classList.add('active');
   }
 
-  function addDomain(domain) {
-    if (!domain) return;
-    domain = domain.trim();
-    try { if (domain.includes('://')) domain = new URL(domain).hostname; } catch(e) {}
-    if (cachedUserRules.includes(domain)) return;
-    cachedUserRules.push(domain);
-    saveUserRules();
-  }
-
-  function removeDomain(domain) {
-    cachedUserRules = cachedUserRules.filter(d => d !== domain);
-    saveUserRules();
-  }
-
-  function saveUserRules() {
-    chrome.storage.local.set({ userRules: cachedUserRules }, () => {
-      renderTags();
-      updateQuickAddButtonState();
-      checkRoutingLogic(); 
-      chrome.proxy.settings.get({}, (d) => { if (d.value.mode === 'pac_script') applyAutoMode(); });
-    });
-  }
-
-  els.manualAddBtn.addEventListener('click', () => {
-    const val = els.manualInput.value;
-    if (val) { addDomain(val); els.manualInput.value = ""; }
-  });
-  els.manualInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const val = els.manualInput.value;
-        if (val) { addDomain(val); els.manualInput.value = ""; }
-    }
-  });
-
+  // 4. 域名检测与快捷添加
   function detectCurrentTab() {
     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
       if (!tabs || tabs.length === 0) return;
       const tab = tabs[0];
-      if (!tab.url || !tab.url.startsWith('http')) {
-          els.quickBox.style.display = 'none';
-          return;
-      }
+      if (!tab.url || !tab.url.startsWith('http')) return;
+
       try {
         const url = new URL(tab.url);
         let hostname = url.hostname;
         if (hostname.startsWith('www.')) hostname = hostname.substring(4);
-        currentDomain = hostname;
-        els.domainText.textContent = hostname;
-        els.quickBox.style.display = 'block';
-        updateQuickAddButtonState();
-        checkRoutingLogic(); 
+        
+        currentDomainStr = hostname;
+        els.currentDomain.textContent = hostname;
+        els.domainArea.style.display = 'block';
+
+        updateRoutingStatus();
+        updateActionButton();
+
       } catch (e) {}
     });
   }
 
-  function updateQuickAddButtonState() {
-    if (cachedUserRules.includes(currentDomain)) {
-      els.addDomainBtn.textContent = "🗑️ 从列表移除";
-      els.addDomainBtn.className = "btn-remove";
-      els.addDomainBtn.onclick = () => removeDomain(currentDomain);
-    } else {
-      els.addDomainBtn.textContent = "➕ 添加到列表";
-      els.addDomainBtn.className = "btn-add";
-      els.addDomainBtn.onclick = () => addDomain(currentDomain);
-    }
-  }
+  function updateRoutingStatus() {
+    let text = "未知";
+    let cls = "status-direct";
 
-  function saveSettings() {
-    chrome.storage.local.set({
-      host: els.host.value,
-      port: parseInt(els.port.value),
-      scheme: els.scheme.value
-    });
-  }
-
-  document.getElementById('updateBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('updateBtn');
-    saveSettings();
-    btn.textContent = "⏳ 下载中...";
-    btn.disabled = true;
-    try {
-      const response = await fetch(GFWLIST_URL);
-      if (!response.ok) throw new Error("Fail");
-      const text = await response.text();
-      const decoded = atob(text.replace(/\s/g, ''));
-      const domains = parseGFWListToDomains(decoded);
-      const now = new Date().toLocaleString();
-      cachedGfwDomains = domains;
-      chrome.storage.local.set({ gfwDomains: domains, ruleCount: domains.length, lastUpdate: now }, () => {
-        updateRuleStatus(domains.length, now);
-        btn.textContent = "✅ 成功";
-        setTimeout(() => { btn.textContent = "🔄 更新 GFWList"; btn.disabled = false; }, 2000);
-        chrome.proxy.settings.get({}, (d) => { if (d.value.mode === 'pac_script') applyAutoMode(); });
-      });
-    } catch (err) {
-      alert("更新失败，请检查网络或开启全局代理。");
-      btn.textContent = "❌ 失败";
-      btn.disabled = false;
-    }
-  });
-
-  document.getElementById('autoBtn').addEventListener('click', () => { saveSettings(); applyAutoMode(); });
-  document.getElementById('proxyBtn').addEventListener('click', () => { saveSettings(); applyGlobalProxy(); });
-  document.getElementById('directBtn').addEventListener('click', () => { setSimpleMode('direct'); });
-
-  function applyAutoMode() {
-    chrome.storage.local.get(['host', 'port', 'scheme', 'gfwDomains', 'userRules'], (items) => {
-      const gfw = items.gfwDomains || [];
-      const user = items.userRules || [];
-      if (gfw.length === 0 && user.length === 0) { alert("请先添加规则！"); return; }
-      const allDomains = [...new Set([...user, ...gfw])];
-      const host = items.host || '127.0.0.1';
-      const port = items.port || 7890;
-      let scheme = items.scheme || 'SOCKS5';
-      let proxyType = (scheme.toUpperCase() === 'HTTP') ? "PROXY" : "SOCKS5";
-      const proxyStr = `${proxyType} ${host}:${port}; SOCKS ${host}:${port}; DIRECT`;
-      
-      const pacScriptStr = `
-        var proxy = "${proxyStr}";
-        var domainList = ${JSON.stringify(allDomains)};
-        var domainMap = {};
-        for (var i = 0; i < domainList.length; i++) { domainMap[domainList[i]] = 1; }
-        function FindProxyForURL(url, host) {
-          if (domainMap.hasOwnProperty(host)) return proxy;
-          var pos = host.indexOf('.');
-          while (pos !== -1) {
-            var suffix = host.substring(pos + 1);
-            if (domainMap.hasOwnProperty(suffix)) return proxy;
-            pos = host.indexOf('.', pos + 1);
-          }
-          return "DIRECT";
+    if (currentMode === 'direct') {
+        text = "全局直连";
+    } else if (currentMode === 'fixed_servers') {
+        text = "全局代理";
+        cls = "status-proxy";
+    } else if (currentMode === 'pac_script') {
+        const inUser = cachedUserRules.includes(currentDomainStr);
+        // 简单检测 GFW
+        let inGfw = cachedGfwDomains.includes(currentDomainStr);
+        if(!inGfw) {
+             const parts = currentDomainStr.split('.');
+             if(parts.length > 1) {
+                 if(cachedGfwDomains.includes(parts.slice(-2).join('.'))) inGfw = true;
+             }
         }
-      `;
-      chrome.proxy.settings.set({ value: { mode: "pac_script", pacScript: { data: pacScriptStr } }, scope: 'regular' }, () => checkCurrentMode());
-    });
-  }
 
-  function parseGFWListToDomains(content) {
-    const lines = content.split(/\r?\n/);
-    const domainSet = new Set();
-    const asciiRegex = /^[\w\-\.]+$/;
-    lines.forEach(line => {
-      if (!line || line.startsWith('!') || line.startsWith('[')) return;
-      let d = line;
-      if (d.startsWith('||')) d = d.substring(2);
-      else if (d.startsWith('|')) return;
-      d = d.replace(/^https?:\/\//, '');
-      const slash = d.indexOf('/');
-      if (slash > 0) d = d.substring(0, slash);
-      if (d.includes('*') || (d.startsWith('/') && d.endsWith('/'))) return;
-      if (d.includes('.') && !d.includes('%') && asciiRegex.test(d)) domainSet.add(d);
-    });
-    ['google.com', 'youtube.com', 'github.com', 'openai.com'].forEach(d => domainSet.add(d));
-    return Array.from(domainSet);
-  }
-
-  function applyGlobalProxy() {
-    chrome.storage.local.get(['host', 'port', 'scheme'], (items) => {
-        const scheme = items.scheme ? items.scheme.toLowerCase() : 'socks5';
-        const config = { mode: "fixed_servers", rules: { singleProxy: { scheme: scheme, host: items.host||'127.0.0.1', port: parseInt(items.port||7890) }, bypassList: ["<local>"] } };
-        chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => checkCurrentMode());
-    });
-  }
-
-  function setSimpleMode(mode) {
-    chrome.proxy.settings.set({ value: { mode: mode }, scope: 'regular' }, () => checkCurrentMode());
-  }
-
-  function checkCurrentMode(callback) {
-    chrome.proxy.settings.get({}, (details) => {
-      if (chrome.runtime.lastError) return;
-      const mode = details.value.mode;
-      currentMode = mode;
-      const map = { 'pac_script': '🤖 自动分流', 'fixed_servers': '🔵 全局代理', 'direct': '⚪ 直连' };
-      els.statusSpan.textContent = map[mode] || mode;
-      // 这里删除了 updateExtensionIcon，因为移交给 background 了
-      if (callback) callback();
-    });
-  }
-  
-  function updateRuleStatus(count, time) {
-    if (count) {
-      els.ruleStatus.textContent = `✅ GFW缓存: ${count} 条`;
-      els.ruleStatus.style.color = 'green';
-    } else {
-      els.ruleStatus.textContent = `⚠️ GFW未加载`;
-      els.ruleStatus.style.color = '#d32f2f';
+        if (inUser || inGfw) {
+            text = "自动: 走代理";
+            cls = "status-proxy";
+        } else {
+            text = "自动: 直连";
+        }
     }
+    els.routingStatus.textContent = text;
+    els.routingStatus.className = `status-badge ${cls}`;
+  }
+
+  function updateActionButton() {
+    if (cachedUserRules.includes(currentDomainStr)) {
+      els.actionBtn.textContent = "🗑️ 移除规则 (强制直连)";
+      els.actionBtn.className = "btn-action btn-remove";
+      els.actionBtn.onclick = () => {
+        cachedUserRules = cachedUserRules.filter(d => d !== currentDomainStr);
+        saveAndReload();
+      };
+    } else {
+      els.actionBtn.textContent = "➕ 添加规则 (强制代理)";
+      els.actionBtn.className = "btn-action btn-add";
+      els.actionBtn.onclick = () => {
+        cachedUserRules.push(currentDomainStr);
+        saveAndReload();
+      };
+    }
+  }
+
+  function saveAndReload() {
+    chrome.storage.local.set({ userRules: cachedUserRules }, () => {
+      // 只需要保存，background.js 会更新图标，options.js (如果打开) 会更新列表
+      // 但是我们需要重新应用 PAC，这里简单调用一次消息或者重新生成
+      // 为了简单，我们发送一个信号给 Options 或者直接在这里重新计算 PAC 
+      // 由于 popup 关闭后无法运行，我们在这里快速生成一次 PAC
+      reapplyPac();
+      updateActionButton();
+      updateRoutingStatus();
+    });
+  }
+
+  // 复用 PAC 生成逻辑 (这是必要的冗余，为了 Popup 操作立即生效)
+  function reapplyPac() {
+    chrome.storage.local.get(['host', 'port', 'scheme', 'gfwDomains'], (items) => {
+        const gfw = items.gfwDomains || [];
+        const user = cachedUserRules;
+        const allDomains = [...new Set([...user, ...gfw])];
+        
+        const host = items.host || '127.0.0.1';
+        const port = items.port || 7890;
+        let scheme = items.scheme || 'SOCKS5';
+        let proxyType = (scheme.toUpperCase() === 'HTTP') ? "PROXY" : "SOCKS5";
+        const proxyStr = `${proxyType} ${host}:${port}; SOCKS ${host}:${port}; DIRECT`;
+        
+        const pacScriptStr = `
+          var proxy = "${proxyStr}";
+          var domainList = ${JSON.stringify(allDomains)};
+          var domainMap = {};
+          for (var i = 0; i < domainList.length; i++) { domainMap[domainList[i]] = 1; }
+          function FindProxyForURL(url, host) {
+            if (domainMap.hasOwnProperty(host)) return proxy;
+            var pos = host.indexOf('.');
+            while (pos !== -1) {
+              var suffix = host.substring(pos + 1);
+              if (domainMap.hasOwnProperty(suffix)) return proxy;
+              pos = host.indexOf('.', pos + 1);
+            }
+            return "DIRECT";
+          }
+        `;
+        // 保存 PAC 内容以便下次切换模式使用
+        chrome.storage.local.set({ pacScriptData: pacScriptStr });
+        
+        // 如果当前是自动模式，立即应用
+        if(currentMode === 'pac_script') {
+            chrome.proxy.settings.set({ value: { mode: "pac_script", pacScript: { data: pacScriptStr } }, scope: 'regular' });
+        }
+    });
   }
 });
