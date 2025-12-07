@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "FastProxy - GFWList版",
+  "version": "3.0",
+  "description": "基于本地 GFWList 的高速分流插件",
+  "permissions": [
+    "proxy",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

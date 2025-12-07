@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 320px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f6f8; margin: 0; }
+    
+    /* 标题样式 */
+    h3 { margin: 0 0 15px 0; font-size: 16px; color: #333; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e1e4e8; padding-bottom: 10px; }
+    
+    /* 卡片容器 */
+    .section { background: white; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 12px; }
+    
+    /* 标签文字 */
+    label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; font-weight: 600; }
+    
+    /* --- 修复溢出的核心布局 --- */
+    .row { display: flex; gap: 8px; align-items: center; }
+    
+    /* 协议选择框：固定宽度 */
+    #scheme { flex: 0 0 85px; cursor: pointer; }
+    
+    /* 主机地址：占据剩余所有空间 */
+    #host { flex: 1; min-width: 0; } 
+    
+    /* 端口：固定宽度，够写5位数字即可 */
+    #port { flex: 0 0 60px; text-align: center; }
+    
+    /* 通用输入框样式 */
+    input, select { 
+      padding: 8px; 
+      border: 1px solid #ddd; 
+      border-radius: 4px; 
+      font-size: 13px; 
+      outline: none;
+      box-sizing: border-box; /* 关键：防止padding撑大宽度 */
+      height: 34px;
+    }
+    input:focus, select:focus { border-color: #2196F3; }
+
+    /* 按钮样式 */
+    button { width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 5px; font-size: 13px; }
+    button:hover { filter: brightness(0.95); }
+    button:active { transform: translateY(1px); }
+
+    .btn-auto { background: #673AB7; color: white; } /* 紫色 */
+    .btn-proxy { background: #4CAF50; color: white; } /* 绿色 */
+    .btn-direct { background: #2196F3; color: white; } /* 蓝色 */
+    .btn-update { background: #FF9800; color: white; font-size: 12px; padding: 8px; }
+
+    /* 状态栏 */
+    .info-text { font-size: 11px; color: #888; margin-top: 5px; text-align: center; }
+    .status-bar { text-align: center; font-size: 13px; margin-top: 15px; color: #333; display: flex; justify-content: center; align-items: center; gap: 5px;}
+    #currentMode { font-weight: bold; padding: 2px 8px; background: #e0e0e0; border-radius: 4px; font-size: 12px;}
+  </style>
+</head>
+<body>
+  <h3>🚀 GFWList 极速版</h3>
+  
+  <div class="section">
+    <label>代理服务器</label>
+    <div class="row">
+      <select id="scheme">
+        <option value="SOCKS5">SOCKS5</option>
+        <option value="HTTP">HTTP</option>
+      </select>
+      <!-- min=0 max=65535 限制端口范围 -->
+      <input type="text" id="host" placeholder="127.0.0.1" value="127.0.0.1">
+      <input type="number" id="port" placeholder="端口" value="7890" min="1" max="65535">
+    </div>
+  </div>
+
+  <div class="section">
+    <label>规则列表 (本地缓存)</label>
+    <div id="ruleStatus" class="info-text">规则状态: ...</div>
+    <button id="updateBtn" class="btn-update">🔄 更新 GFWList 到本地</button>
+    <div class="info-text" style="color: #d32f2f;">注意：更新前请先开启“全局代理”</div>
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-top: 10px;">
+    <button id="autoBtn" class="btn-auto">🤖 自动分流</button>
+    <button id="proxyBtn" class="btn-proxy">🔵 全局代理</button>
+  </div>
+  <button id="directBtn" class="btn-direct" style="margin-top: 8px;">⚪ 直接连接</button>
+
+  <div class="status-bar">当前模式: <span id="currentMode">...</span></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
