@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "FastProxy - 专业版",
-  "version": "5.0.0",
-  "description": "极简面板 + 独立设置中心",
+  "name": "FastProxy - 智能代理切换",
+  "version": "5.1.0",
+  "description": "高效的代理自动分流工具。支持 GFWList 规则、自定义黑白名单、PAC 脚本。是 SwitchyOmega 的轻量化替代方案。",
   "permissions": [
     "proxy",
     "storage",
