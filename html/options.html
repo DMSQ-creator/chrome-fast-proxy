@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>FastProxy 设置</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #f5f7fa; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 800px; }
+    
+    /* 修改：H1 字体大小保持 24px */
+    h1 { margin-bottom: 20px; font-size: 24px; display: flex; align-items: center; gap: 10px; color: #2c3e50; }
+    
+    /* 修改：Logo 图片大小缩小为 24px，与文字等高 */
+    .logo-img { width: 24px; height: 24px; }
+
+    .card { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
+    .card-header { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    
+    .form-group { display: flex; gap: 15px; align-items: center; }
+    label { font-size: 14px; color: #555; width: 80px; }
+    input, select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input:focus { border-color: #2196F3; outline: none; }
+    
+    button { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-primary { background: #2196F3; color: white; }
+    .btn-primary:hover { background: #1976D2; }
+    .btn-success { background: #4CAF50; color: white; }
+    
+    .tags-box { border: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 4px; min-height: 100px; max-height: 300px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: white; border: 1px solid #b3e5fc; color: #0277bd; padding: 4px 10px; border-radius: 15px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .tag i { cursor: pointer; color: #d32f2f; font-style: normal; font-weight: bold; }
+    .tag i:hover { opacity: 0.7; }
+    
+    .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    #manualInput { flex: 1; }
+
+    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; margin-bottom: 20px; }
+    .footer a { color: #999; text-decoration: none; border-bottom: 1px dashed #ccc; transition: 0.2s; }
+    .footer a:hover { color: #2196F3; border-bottom-color: #2196F3; }
+    
+    .hint-text { color: #E65100; font-size: 12px; background: #FFF3E0; padding: 5px 10px; border-radius: 4px; display: inline-block; margin-top: 5px; border: 1px solid #FFE0B2; }
+
+    #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 10px; position: fixed; z-index: 1; bottom: 30px; left: 50%; transform: translateX(-50%); }
+    #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>
+    <!-- 图片引用路径保持 ../assets/icon.png -->
+    <img src="../assets/icon.png" class="logo-img" alt="FastProxy"> 
+    FastProxy 设置中心
+  </h1>
+
+  <!-- 1. 服务器设置 -->
+  <div class="card">
+    <div class="card-header">📡 代理服务器配置</div>
+    <div class="form-group">
+      <select id="scheme">
+        <option value="SOCKS5">SOCKS5</option>
+        <option value="HTTP">HTTP</option>
+      </select>
+      <input type="text" id="host" placeholder="地址 (如 127.0.0.1)" style="width: 200px;">
+      <span>:</span>
+      <!-- 修改：端口宽度改为 100px -->
+      <input type="number" id="port" placeholder="端口 (如 7890)" style="width: 100px;">
+      <button id="saveServerBtn" class="btn-primary">保存配置</button>
+    </div>
+  </div>
+
+  <!-- 2. GFWList 设置 -->
+  <div class="card">
+    <div class="card-header">🌏 GFWList 规则库 (自动分流依据)</div>
+    <div style="display: flex; justify-content: space-between; align-items: start;">
+      <div>
+        <div style="font-size: 13px; color: #666; margin-bottom: 5px;">状态: <span id="gfwStatus">...</span></div>
+        <div class="hint-text">⚠️ 提示：更新规则需连接 GitHub，下载失败请先在插件面板开启 [全局代理]</div>
+      </div>
+      <button id="updateGfwBtn" class="btn-success">🔄 立即更新</button>
+    </div>
+  </div>
+
+  <!-- 3. 自定义规则 -->
+  <div class="card">
+    <div class="card-header">📝 自定义代理规则 (User Rules)</div>
+    <div class="input-row">
+      <input type="text" id="manualInput" placeholder="输入域名 (例如: openai.com) 按回车添加">
+      <button id="addRuleBtn" class="btn-primary">添加</button>
+    </div>
+    <div class="tags-box" id="tagsList">
+      <!-- 标签生成在这里 -->
+    </div>
+    <div style="margin-top: 10px; text-align: right; color: #999; font-size: 12px;">
+      共 <span id="userCount">0</span> 条规则
+    </div>
+  </div>
+
+  <!-- 底部版权 -->
+  <div class="footer">
+    FastProxy v5.1.2 &copy; 2025 • 
+    <a href="https://github.com/DMSQ-creator/chrome-fast-proxy" target="_blank">GitHub Repository</a>
+  </div>
+</div>
+
+<div id="toast">保存成功</div>
+<script src="../js/options.js"></script>
+
+</body>
+</html>
