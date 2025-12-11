@@ -1,31 +1,32 @@
-// background.js - v5.1.0
+// background.js - v5.2.0
 
 let cachedUserRules = new Set();
+let cachedUserWhitelist = new Set(); // 新增
 let cachedGfwDomains = new Set();
 let currentMode = 'direct';
 let lastDrawState = { color: null, char: null };
 
 // 1. 初始化
-chrome.storage.local.get(['userRules', 'gfwDomains'], (items) => {
-  updateSets(items.userRules, items.gfwDomains);
+chrome.storage.local.get(['userRules', 'userWhitelist', 'gfwDomains'], (items) => {
+  updateSets(items.userRules, items.userWhitelist, items.gfwDomains);
 });
 
 // 2. 监听数据变化
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local') {
-    const newUser = changes.userRules ? changes.userRules.newValue : null;
-    const newGfw = changes.gfwDomains ? changes.gfwDomains.newValue : null;
-    if (newUser || newGfw) {
-        chrome.storage.local.get(['userRules', 'gfwDomains'], (items) => {
-            updateSets(items.userRules, items.gfwDomains);
+    // 只要有任意规则变化，就重新读取
+    if (changes.userRules || changes.userWhitelist || changes.gfwDomains) {
+        chrome.storage.local.get(['userRules', 'userWhitelist', 'gfwDomains'], (items) => {
+            updateSets(items.userRules, items.userWhitelist, items.gfwDomains);
             updateIconForActiveTab();
         });
     }
   }
 });
 
-function updateSets(userArr, gfwArr) {
+function updateSets(userArr, whiteArr, gfwArr) {
     if (userArr) cachedUserRules = new Set(userArr);
+    if (whiteArr) cachedUserWhitelist = new Set(whiteArr);
     if (gfwArr) cachedGfwDomains = new Set(gfwArr);
 }
 
@@ -72,39 +73,51 @@ function updateIconForActiveTab() {
 }
 
 function calculateState(urlStr, mode) {
-  let color = "#2196F3"; 
+  let color = "#2196F3"; // 默认蓝 (直连)
   let char = "D";        
 
   if (mode === 'fixed_servers') {
-    return { color: "#4CAF50", char: "P" };
+    return { color: "#4CAF50", char: "P" }; // 全局代理绿
   } 
   else if (mode === 'direct') {
     return { color: "#2196F3", char: "D" };
   } 
   else if (mode === 'pac_script') {
-    char = "A"; 
-    color = "#9E9E9E"; 
+    char = "A"; // 自动模式
+    color = "#9E9E9E"; // 默认灰 (自动-直连)
     
     if (urlStr && urlStr.startsWith('http')) {
       try {
         const hostname = new URL(urlStr).hostname;
         const domain = hostname.startsWith('www.') ? hostname.substring(4) : hostname;
         
-        if (cachedUserRules.has(domain)) return { color: "#4CAF50", char: "A" };
-        if (cachedGfwDomains.has(domain)) return { color: "#4CAF50", char: "A" };
+        // 1. 优先检查白名单 -> 变蓝
+        if (checkSet(domain, cachedUserWhitelist)) return { color: "#2196F3", char: "A" };
+
+        // 2. 检查黑名单 -> 变绿
+        if (checkSet(domain, cachedUserRules)) return { color: "#4CAF50", char: "A" };
         
-        const lastDot = domain.lastIndexOf('.');
-        if (lastDot > 0) {
-            const prevDot = domain.lastIndexOf('.', lastDot - 1);
-            if (prevDot !== -1) {
-                const root = domain.substring(prevDot + 1);
-                if (cachedGfwDomains.has(root)) return { color: "#4CAF50", char: "A" };
-            }
-        }
+        // 3. 检查 GFWList -> 变绿
+        if (checkSet(domain, cachedGfwDomains)) return { color: "#4CAF50", char: "A" };
+        
       } catch (e) {}
     }
   }
   return { color, char };
+}
+
+// 辅助：支持泛域名的检查 (如 google.com 匹配 maps.google.com)
+function checkSet(domain, setObj) {
+    if (setObj.has(domain)) return true;
+    const lastDot = domain.lastIndexOf('.');
+    if (lastDot > 0) {
+        const prevDot = domain.lastIndexOf('.', lastDot - 1);
+        if (prevDot !== -1) {
+            const root = domain.substring(prevDot + 1);
+            if (setObj.has(root)) return true;
+        }
+    }
+    return false;
 }
 
 function drawIcon(color, char) {
@@ -123,7 +136,7 @@ function drawIcon(color, char) {
   chrome.action.setIcon({ imageData: ctx.getImageData(0, 0, 32, 32) });
 }
 
-// --- 新增：安装后自动打开设置页 ---
+// 安装后打开设置页
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     chrome.runtime.openOptionsPage();

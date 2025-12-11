@@ -5,57 +5,42 @@
   <style>
     body { width: 300px; font-family: -apple-system, sans-serif; padding: 0; margin: 0; background: #fff; }
     
-    /* 顶部导航栏 */
-    .header {
-      padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;
-    }
-    .brand { 
-      font-weight: bold; font-size: 14px; color: #333; 
-      display: flex; align-items: center; gap: 8px; 
-    }
-    
-    /* Logo图片样式：保持小巧 (24px) */
-    .brand-logo {
-      width: 24px;
-      height: 24px;
-      object-fit: contain;
-    }
-
-    .settings-icon { cursor: pointer; font-size: 18px; color: #666; transition: 0.2s; text-decoration: none; }
+    .header { padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; }
+    .brand { font-weight: bold; font-size: 14px; color: #333; display: flex; align-items: center; gap: 8px; }
+    .brand-logo { width: 24px; height: 24px; object-fit: contain; }
+    .settings-icon { cursor: pointer; font-size: 18px; color: #666; transition: 0.2s; }
     .settings-icon:hover { color: #2196F3; transform: rotate(30deg); }
 
-    /* 主要内容区 */
     .content { padding: 15px; text-align: center; }
 
-    /* 域名与状态 */
     .domain-box { margin-bottom: 15px; }
     .domain { font-size: 16px; font-weight: bold; color: #1565C0; font-family: monospace; display: block; margin-bottom: 5px; word-break: break-all; }
+    
     .status-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; color: #666; background: #eee; }
     .status-proxy { background: #E8F5E9; color: #2E7D32; }
     .status-direct { background: #eceff1; color: #546e7a; }
 
-    /* 快捷按钮 */
-    .btn-action { 
-      padding: 6px 15px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; margin-top: 8px; width: 100%; font-weight: 600;
-    }
-    .btn-add { background: #E3F2FD; color: #1976D2; }
-    .btn-add:hover { background: #BBDEFB; }
-    .btn-remove { background: #FFEBEE; color: #D32F2F; }
+    /* 按钮样式组 */
+    .action-group { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-action { flex: 1; padding: 6px 0; border-radius: 4px; font-size: 12px; border: none; cursor: pointer; font-weight: 600; }
+    
+    .btn-add-proxy { background: #E3F2FD; color: #1976D2; }
+    .btn-add-proxy:hover { background: #BBDEFB; }
+    
+    .btn-add-direct { background: #E8F5E9; color: #2E7D32; }
+    .btn-add-direct:hover { background: #C8E6C9; }
+
+    .btn-remove { background: #FFEBEE; color: #D32F2F; width: 100%; }
     .btn-remove:hover { background: #FFCDD2; }
 
-    /* 模式切换区 */
     .mode-group { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
-    .mode-btn { 
-      padding: 12px; border: 1px solid #eee; background: white; border-radius: 8px; cursor: pointer; 
-      display: flex; align-items: center; gap: 10px; transition: 0.2s; text-align: left;
-    }
+    .mode-btn { padding: 12px; border: 1px solid #eee; background: white; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; text-align: left; }
     .mode-btn:hover { background: #f5f5f5; border-color: #ddd; }
     .mode-btn.active { border: 2px solid; background: #fff; }
     
     .mode-auto.active { border-color: #673AB7; color: #673AB7; background: #F3E5F5; }
     .mode-proxy.active { border-color: #4CAF50; color: #4CAF50; background: #E8F5E9; }
     .mode-direct.active { border-color: #9E9E9E; color: #616161; background: #F5F5F5; }
-
     .icon { font-size: 16px; }
     .label { font-size: 13px; font-weight: 500; }
   </style>
@@ -63,7 +48,6 @@
 <body>
   <div class="header">
     <div class="brand">
-      <!-- 修改：alt 属性改为 FastProxy -->
       <img src="../assets/icon.png" class="brand-logo" alt="FastProxy">
       FastProxy
     </div>
@@ -71,14 +55,13 @@
   </div>
 
   <div class="content">
-    <!-- 域名状态区 -->
     <div class="domain-box" id="domainArea" style="display:none">
       <span class="domain" id="currentDomain">...</span>
       <span class="status-badge" id="routingStatus">检测中...</span>
-      <button id="actionBtn" class="btn-action">➕ 添加到代理列表</button>
+      
+      <div id="actionArea"></div>
     </div>
 
-    <!-- 模式切换区 -->
     <div class="mode-group">
       <button class="mode-btn mode-auto" id="btnAuto">
         <span class="icon">🤖</span> <span class="label">自动分流 (PAC)</span>
