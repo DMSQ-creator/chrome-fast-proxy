@@ -5,9 +5,7 @@ FastProxy 是一个基于 Chrome Manifest V3 标准开发的轻量级代理管�
 
 ## 截图效果
 
-![点击插件图标](https://s3.bmp.ovh/imgs/2025/12/12/d6c325be15f05d10.png)
-
-![插件设置](https://s3.bmp.ovh/imgs/2025/12/12/6e405abfe2fa2ee7.png)
+![FastProxy 工具截图](https://s3.bmp.ovh/imgs/2025/12/12/a180ee488cc97606.png)
 
 ## ✨ 核心特性
 
