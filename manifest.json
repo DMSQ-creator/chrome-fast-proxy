@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "FastProxy - 智能代理切换",
-  "version": "5.3.0",
-  "description": "高效的代理自动分流工具。支持 GFWList、自定义黑/白名单 (直连)、PAC 脚本、配置备份及延迟测试。是 SwitchyOmega 的轻量化替代方案。",
+  "version": "5.8.0",
+  "description": "高效的代理自动分流工具。支持 GFWList、自定义黑/白名单、PAC 脚本、WebDAV/Gist 云同步及延迟测试。",
   "permissions": [
     "proxy",
     "storage",
-    "tabs"
+    "tabs",
+    "alarms" 
   ],
   "host_permissions": [
     "http://*/*",

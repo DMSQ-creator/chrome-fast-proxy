@@ -27,11 +27,28 @@
     .btn-primary { background: #2196F3; color: white; }
     .btn-primary:hover { background: #1976D2; }
     .btn-success { background: #4CAF50; color: white; }
-    .btn-info { background: #00BCD4; color: white; } /* 测试按钮颜色 */
+    .btn-info { background: #00BCD4; color: white; }
     .btn-info:hover { background: #00acc1; }
 
-    .tags-box { border: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 4px; min-height: 80px; max-height: 200px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+    /* WebDAV 专用样式 */
+    .sync-panel{background:#f8f9fa;border:1px solid #eef0f2;border-radius:6px;padding:15px;margin-top:10px}
+    .form-row{display:flex;align-items:center;margin-bottom:12px}
+    .form-row:last-child{margin-bottom:0}
+    .form-row label{width:90px;font-size:13px;font-weight:600;color:#555;flex-shrink:0}
+    .form-row input,.form-row select{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:13px;background:#fff;transition:border-color .2s}
+    .form-row input:focus{border-color:#673ab7;outline:0;box-shadow:0 0 0 2px rgba(103,58,183,.1)}
+    .split-row{display:flex;gap:15px;width:100%}
+    .split-item{flex:1;display:flex;align-items:center}
+    .split-item label{width:40px;font-weight:400}
+    .split-item input{width:100%}
+    .btn-row{display:flex;gap:10px;margin-top:15px;justify-content:flex-end;padding-top:10px;border-top:1px dashed #eee}
     
+    .btn-purple { background: #673AB7; color: white; }
+    .btn-purple:hover { background: #5E35B1; }
+    .btn-purple-outline { background: white; border: 1px solid #673AB7; color: #673AB7; }
+    .btn-purple-outline:hover { background: #F3E5F5; }
+
+    .tags-box { border: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 4px; min-height: 80px; max-height: 200px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 8px; }
     .tag { background: white; border: 1px solid #b3e5fc; color: #0277bd; padding: 4px 10px; border-radius: 15px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
     .tag i { cursor: pointer; color: #d32f2f; font-style: normal; font-weight: bold; }
     .tag i:hover { opacity: 0.7; }
@@ -78,9 +95,71 @@
       <span>:</span>
       <input type="number" id="port" placeholder="端口 (如 7890)" style="width: 80px;">
       <button id="saveServerBtn" class="btn-primary">保存</button>
-      
       <button id="testLatencyBtn" class="btn-info" title="连接 Google 测试延迟">📶 测试延迟</button>
       <span id="latencyResult" style="font-size:13px; font-weight:bold; margin-left:5px;"></span>
+    </div>
+  </div>
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span>☁️ 云端同步</span>
+        <select id="syncProvider" style="padding: 4px 8px; font-size: 12px; border-radius: 15px; border: 1px solid #ddd; background: #f0f2f5; color: #333; cursor:pointer; outline:none;">
+          <option value="github">GitHub Gist (推荐)</option>
+          <option value="webdav">WebDAV (坚果云等)</option>
+        </select>
+      </div>
+      <span id="syncStatus" style="font-size:12px; font-weight:normal; color:#999">未同步</span>
+    </div>
+
+    <div style="background: #fff; border-bottom: 1px dashed #eee; padding: 10px 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <input type="checkbox" id="autoSync" style="margin:0;">
+        <label for="autoSync" style="font-size: 13px; font-weight: 600; color: #333; cursor: pointer;">开启自动同步</label>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 12px; color: #666;">同步频率:</span>
+        <select id="syncInterval" style="padding: 2px 5px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="60">每 1 小时</option>
+          <option value="360">每 6 小时</option>
+          <option value="720">每 12 小时</option>
+          <option value="1440">每天 (24h)</option>
+          <option value="10080">每周</option>
+          <option value="43200">每月 (30天)</option>
+        </select>
+      </div>
+      <span style="font-size: 11px; color: #999; margin-left: auto;">(修改规则后会自动上传)</span>
+    </div>
+    
+    <div id="panelGithub" class="sync-panel">
+      <div class="form-row">
+        <label>Token 密钥</label>
+        <input type="password" id="gitToken" placeholder="GitHub Personal Access Token">
+        <a href="https://github.com/settings/tokens/new?scopes=gist&description=FastProxy%20Sync" target="_blank" class="btn-io" style="text-decoration:none; margin-left:8px; white-space:nowrap;">🔑 去生成</a>
+      </div>
+    </div>
+
+    <div id="panelWebdav" class="sync-panel" style="display:none;">
+      <div class="form-row">
+        <label>服务器 URL</label>
+        <input type="text" id="davUrl" placeholder="https://dav.jianguoyun.com/dav/">
+      </div>
+      <div class="form-row split-row">
+        <div class="split-item">
+          <label>账号</label>
+          <input type="text" id="davUser" placeholder="WebDAV 账号">
+        </div>
+        <div class="split-item">
+          <label>密码</label>
+          <input type="password" id="davPass" placeholder="应用密码">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="cloudDownloadBtn" class="btn-purple-outline">⬇️ 立即下载</button>
+      <button id="cloudUploadBtn" class="btn-purple">☁️ 立即上传</button>
     </div>
   </div>
 
@@ -129,7 +208,7 @@
   </div>
 
   <div class="footer">
-    FastProxy v5.3.0 © 2025 • 
+    FastProxy v5.5.0 © 2025 • 
     <a href="https://github.com/DMSQ-creator/chrome-fast-proxy" target="_blank">GitHub Repository</a>
   </div>
 </div>
