@@ -50,7 +50,12 @@ chrome.runtime.onMessage.addListener((m, s, sendResponse) => {
 
 function normalizeSet(list) {
   if (!list) return new Set();
-  return new Set(list.map(d => d.toLowerCase().trim().replace(/^\*\.|\./, '')).filter(Boolean));
+  return new Set(list.map(d => {
+    let domain = d.toLowerCase().trim();
+    if (domain.startsWith('*.')) domain = domain.substring(2);
+    else if (domain.startsWith('.')) domain = domain.substring(1);
+    return domain;
+  }).filter(Boolean));
 }
 
 function updateCacheAndApply() {
