@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FastProxy - 智能代理切换",
-  "version": "5.8.0",
+  "version": "5.8.1",
   "description": "高效的代理自动分流工具。支持 GFWList、自定义黑/白名单、PAC 脚本、WebDAV/Gist 云同步及延迟测试。",
   "permissions": [
     "proxy",
