@@ -1,25 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "FastProxy - 智能代理切换",
-  "version": "5.8.1",
-  "description": "高效的代理自动分流工具。支持 GFWList、自定义黑/白名单、PAC 脚本、WebDAV/Gist 云同步及延迟测试。",
+  "name": "FastProxy - 终极代理工具",
+  "version": "7.3.4",
+  "description": "专业级代理管理工具。支持侧边栏设置、规则管理、双击编辑、云端同步。",
   "permissions": [
     "proxy",
     "storage",
     "tabs",
-    "alarms" 
+    "alarms",
+    "webNavigation"
   ],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
   ],
-  "icons": {
-    "16": "assets/icon.png",
-    "48": "assets/icon.png",
-    "128": "assets/icon.png"
-  },
   "background": {
-    "service_worker": "js/background.js" 
+    "service_worker": "js/background.js"
   },
   "action": {
     "default_popup": "html/popup.html",
@@ -28,5 +24,10 @@
   "options_ui": {
     "page": "html/options.html",
     "open_in_tab": true
+  },
+  "icons": {
+    "16": "assets/icon.png",
+    "48": "assets/icon.png",
+    "128": "assets/icon.png"
   }
 }
