@@ -1,4 +1,4 @@
-// js/options.js - v5.8.0
+// js/options.js - v5.8.1 (Fix: Save token on download)
 
 const DEFAULT_GFWLIST_URL = 'https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt';
 const LATENCY_TEST_URL = 'https://www.google.com/generate_204';
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'gfwDomains', 'gfwlistUrl', 
     'syncProvider', 'gitToken', 'davUrl', 'davUser', 'davPass',
     'autoSync', 'syncInterval',
-    'lastSyncTime' // ✅ 新增：读取上次同步时间
+    'lastSyncTime'
   ];
   
   chrome.storage.local.get(keys, (items) => {
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     els.gfwUrlInput.value = items.gfwlistUrl || DEFAULT_GFWLIST_URL;
     
     els.autoSync.checked = items.autoSync || false;
-    els.syncInterval.value = items.syncInterval || "1440"; // 默认每天
+    els.syncInterval.value = items.syncInterval || "1440";
 
     if (items.syncProvider) els.syncProvider.value = items.syncProvider;
     if (items.gitToken) els.gitToken.value = items.gitToken;
@@ -78,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (items.davUser) els.davUser.value = items.davUser;
     if (items.davPass) els.davPass.value = items.davPass;
     
-    // ✅ 关键：回显同步时间
     if (items.lastSyncTime) {
         updateSyncStatus(items.lastSyncTime, false); 
     }
@@ -212,6 +211,10 @@ async function handleGithubUpload(data) {
 async function handleGithubDownload() {
   const token = els.gitToken.value.trim();
   if (!token) return alert("请输入 GitHub Token");
+  
+  // ✅ 修复：下载前立即保存 Token
+  chrome.storage.local.set({ gitToken: token });
+
   setBtnLoading(els.cloudDownloadBtn, true, "🔍 查找配置...");
   try {
     const gistId = await findGistId(token);
@@ -338,7 +341,6 @@ function applyImportConfig(data) {
   });
 }
 
-// ✅ 状态更新逻辑 (存入 storage)
 function updateSyncStatus(timeStr, shouldSave = true) {
   els.syncStatus.textContent = "上次同步: " + timeStr;
   els.syncStatus.style.color = "#2E7D32"; // 绿色
@@ -349,7 +351,7 @@ function updateSyncStatus(timeStr, shouldSave = true) {
 
 function setBtnLoading(btn, isLoading, text) { btn.disabled = isLoading; btn.textContent = text; }
 
-// 5. GFWList & Rules (保持不变)
+// 5. GFWList & Rules
 els.resetUrlBtn.addEventListener('click', () => { els.gfwUrlInput.value = DEFAULT_GFWLIST_URL; showToast("已重置"); });
 els.updateGfwBtn.addEventListener('click', async () => {
   const targetUrl = els.gfwUrlInput.value.trim() || DEFAULT_GFWLIST_URL;
