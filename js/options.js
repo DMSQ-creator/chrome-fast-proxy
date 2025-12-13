@@ -88,6 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cachedUserWhitelist = items.userWhitelist || [];
     cachedGfwDomains = items.gfwDomains || [];
     
+    const manifest = chrome.runtime.getManifest();
+    const footer = document.querySelector('.footer');
+    if (footer) {
+      // 这里的年份 2025 你也可以根据需要改为自动获取，或者固定写死
+      footer.innerHTML = `FastProxy v${manifest.version} © 2025 • <a href="https://github.com/DMSQ-creator/chrome-fast-proxy" target="_blank">GitHub Repository</a>`;
+    }
+
     updateGfwUI(items.ruleCount, items.lastUpdate);
     renderProxyTags();
     renderWhitelistTags();
