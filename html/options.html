@@ -1,246 +1,241 @@
+<!-- html/options.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>FastProxy 设置中心</title>
   <style>
-    /* --- 基础变量 --- */
     :root {
-      --bg-body: #f0f2f5; --bg-sidebar: #ffffff; --bg-content: #ffffff;
-      --text-main: #333; --text-sub: #666; --border: #e1e4e8;
-      --primary: #2196F3; --primary-light: #E3F2FD; 
-      --success: #4CAF50; --danger: #f44336; --warning: #ff9800;
-      --item-hover: #f5f5f5;
-      --badge-bg: #e8f5e9; --badge-text: #2e7d32;
+      --primary: #6366f1; --primary-light: #e0e7ff; --primary-hover: #4f46e5;
+      --bg-body: #f3f4f6; --bg-card: #ffffff;
+      --text-main: #111827; --text-sub: #6b7280; --border: #e5e7eb;
+      --danger: #ef4444; --success: #10b981; --warning: #f59e0b;
+      --radius: 16px; --radius-sm: 8px;
     }
-    /* 深色模式 */
     html[data-theme="dark"] {
-      --bg-body: #121212; --bg-sidebar: #1e1e1e; --bg-content: #1e1e1e;
-      --text-main: #e0e0e0; --text-sub: #aaaaaa; --border: #333;
-      --primary: #64b5f6; --primary-light: rgba(33, 150, 243, 0.15);
-      --success: #81c784; --danger: #e57373; --warning: #ffb74d;
-      --item-hover: #2c2c2c;
-      --badge-bg: rgba(129, 199, 132, 0.2); --badge-text: #81c784;
+      --primary: #818cf8; --primary-light: rgba(99, 102, 241, 0.15); --primary-hover: #a5b4fc;
+      --bg-body: #0f172a; --bg-card: #1e293b; --text-main: #f1f5f9; --text-sub: #94a3b8; --border: #334155;
+      --danger: #f87171; --success: #34d399; --warning: #fbbf24;
     }
-
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text-main); background: var(--bg-body); height: 100vh; overflow: hidden; display: flex; }
-
-    .app-sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-    .app-main { flex: 1; overflow-y: auto; padding: 30px 40px; max-width: 900px; }
-
-    .brand { padding: 25px 20px; font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; color: var(--primary); border-bottom: 1px solid var(--border); }
-    .menu { list-style: none; padding: 20px 10px; margin: 0; flex: 1; }
-    .menu-item { padding: 12px 15px; margin-bottom: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-sub); transition: 0.2s; }
-    .menu-item:hover { background: var(--item-hover); color: var(--text-main); }
+    body { margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+    .app-sidebar { width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; gap: 10px; }
+    .brand { padding: 10px 15px 30px; font-size: 20px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 12px; }
+    .menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+    .menu-item { padding: 12px 16px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: var(--text-sub); transition: 0.2s; }
+    .menu-item:hover { background: var(--bg-body); color: var(--text-main); }
     .menu-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
-    .menu-footer { padding: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-sub); text-align: center; }
-
+    .menu-footer { margin-top: auto; padding: 20px 0; font-size: 12px; color: var(--text-sub); text-align: center; opacity: 0.6; }
+    .app-main { flex: 1; overflow-y: auto; padding: 40px; }
+    .container { max-width: 900px; margin: 0 auto; }
     .section { display: none; animation: fadeIn 0.3s ease; }
     .section.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: 0; } }
-
-    h2 { margin-top: 0; margin-bottom: 20px; font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
-    
-    .card { background: var(--bg-content); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--text-sub); }
-    .help-text { font-size: 12px; color: var(--text-sub); margin-top: 5px; line-height: 1.5; }
-    .info-tip { font-size: 12px; color: var(--primary); background: var(--primary-light); padding: 8px 12px; border-radius: 4px; margin-bottom: 15px; }
-    
-    input[type="text"], input[type="password"], input[type="number"], select {
-      width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-content); color: var(--text-main); box-sizing: border-box;
-    }
-    input:focus, select:focus { border-color: var(--primary); outline: none; }
-
-    .btn { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { filter: brightness(1.1); }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-success { background: var(--success); color: white; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: 0; } }
+    h2 { margin: 0 0 24px 0; font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+    .card { background: var(--bg-card); border-radius: var(--radius); box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; }
+    input[type="text"], input[type="password"], input[type="number"], select { width: 100%; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-body); color: var(--text-main); font-size: 14px; box-sizing: border-box; transition: 0.2s; }
+    input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .btn { padding: 10px 20px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+    .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
     .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
     .btn-ghost:hover { border-color: var(--text-sub); }
-    .btn-sm { padding: 4px 10px; font-size: 12px; }
-
-    .status-badge { font-size:12px; font-weight:normal; padding:2px 8px; border-radius:4px; transition: background 0.3s, color 0.3s; }
-    .status-badge.synced { background: var(--badge-bg); color: var(--badge-text); }
-    .status-badge.none { background: var(--item-hover); color: var(--text-sub); }
-
-    .rule-toolbar { display: flex; gap: 10px; margin-bottom: 15px; }
-    .rule-list { border: 1px solid var(--border); border-radius: 6px; height: 500px; overflow-y: auto; background: var(--bg-content); }
-    .rule-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--border); font-size: 13px; font-family: monospace; transition: 0.1s;}
-    .rule-item:last-child { border-bottom: none; }
-    .rule-item:hover { background: var(--item-hover); }
-    .domain-text { cursor: text; }
-    
-    .server-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
-    .server-item:hover { border-color: var(--primary); }
-    .server-item.active { border: 2px solid var(--primary); background: var(--primary-light); }
-    
-    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 1000; opacity: 0; transition: 0.3s; pointer-events: none; }
-    #toast.show { opacity: 1; top: 30px; }
+    .btn-success { background: var(--success); color: #fff; }
+    #serverListContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .server-item { background: var(--bg-body); border: 2px solid transparent; border-radius: var(--radius-sm); padding: 16px; cursor: pointer; transition: 0.2s; position: relative; }
+    .server-item:hover { transform: translateY(-2px); border-color: var(--primary-light); }
+    .server-item.active { border-color: var(--primary); background: var(--primary-light); }
+    .server-item.active .server-name { color: var(--primary); }
+    .server-tag { font-size: 10px; font-weight: 700; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 4px; }
+    .server-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; opacity: 0; transition: 0.2s; }
+    .server-item:hover .server-actions { opacity: 1; }
+    .rule-toolbar { display: flex; gap: 10px; margin-bottom: 15px; background: var(--bg-body); padding: 10px; border-radius: var(--radius-sm); }
+    .rule-list { height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .rule-item { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; font-family: monospace; font-size: 13px; }
+    .rule-item:hover { background: var(--bg-body); }
+    .info-tip { background: var(--primary-light); color: var(--primary); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; line-height: 1.5; margin-bottom: 20px; }
+    .help-text { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+    #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(50px); background: #111827; color: #fff; padding: 10px 24px; border-radius: 50px; font-size: 14px; font-weight: 500; opacity: 0; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 100; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
 
   <aside class="app-sidebar">
-    <div class="brand"><span style="font-size:24px">⚡</span> FastProxy</div>
+    <div class="brand"><span>⚡</span> FastProxy</div>
     <ul class="menu">
-      <li class="menu-item active" data-target="server"><span>📡</span> 代理服务器</li>
+      <li class="menu-item active" data-target="server"><span>📡</span> 服务器配置</li>
       <li class="menu-item" data-target="rules"><span>📝</span> 规则管理</li>
       <li class="menu-item" data-target="gfw"><span>🌏</span> GFWList</li>
       <li class="menu-item" data-target="sync"><span>☁️</span> 云端同步</li>
       <li class="menu-item" data-target="about"><span>⚙️</span> 通用设置</li>
     </ul>
-    <div class="menu-footer">v7.3.4 Stable</div>
+    <div class="menu-footer">Version 7.3.11 Pro</div>
   </aside>
 
   <main class="app-main">
-    <div id="section-server" class="section active">
-      <h2>
-        代理服务器配置
-        <div style="display:flex; gap:10px;">
+    <div class="container">
+      
+      <!-- 服务器配置 -->
+      <div id="section-server" class="section active">
+        <h2>
+          代理服务器
+          <div style="display:flex; gap:10px;">
             <button id="testLatencyBtn" class="btn btn-ghost btn-sm">📶 测试延迟</button>
-            <button id="addServerBtn" class="btn btn-primary btn-sm">+ 新增服务器</button>
-        </div>
-      </h2>
-      <div id="latencyResult" style="margin-bottom:10px; font-size:13px; font-weight:bold; display:none;"></div>
-      <div id="serverListContainer"></div>
-      <div id="serverForm" class="card" style="display:none; border: 2px dashed var(--primary);">
-        <h3 style="margin-top:0; font-size:14px;">编辑服务器</h3>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
-          <input type="text" id="editName" placeholder="备注名" style="flex:1">
-          <select id="editScheme" style="width:100px"><option value="SOCKS5">SOCKS5</option><option value="HTTP">HTTP</option></select>
-          <input type="text" id="editHost" placeholder="IP / 域名" style="flex:2">
-          <input type="number" id="editPort" placeholder="端口" style="width:80px">
-        </div>
-        <div style="text-align:right;">
-          <button id="cancelServerItemBtn" class="btn btn-ghost btn-sm">取消</button>
-          <button id="saveServerItemBtn" class="btn btn-primary btn-sm">保存</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="section-rules" class="section">
-      <h2>
-        规则管理
-        <div>
-          <select id="ruleTypeSelect" style="width:100%; padding:6px; font-weight:bold;">
-            <option value="userRules">🚀 代理列表 (强制代理)</option>
-            <option value="userWhitelist">🛡️ 直连列表 (强制直连)</option>
-          </select>
-        </div>
-      </h2>
-      <div class="card">
-        <div class="rule-toolbar">
-          <input type="text" id="ruleSearch" placeholder="🔍 搜索域名..." style="flex:1">
-          <input type="text" id="ruleAddInput" placeholder="输入域名回车添加" style="flex:1">
-          <button id="ruleAddBtn" class="btn btn-primary btn-sm">添加</button>
-        </div>
-        <div class="rule-toolbar">
-          <button id="ruleExportBtn" class="btn btn-ghost btn-sm">📤 导出 JSON</button>
-          <button id="ruleImportBtn" class="btn btn-ghost btn-sm">📥 导入 JSON</button>
-          <input type="file" id="ruleFile" style="display:none" accept=".json">
-          <button id="ruleClearBtn" class="btn btn-ghost btn-sm" style="color:var(--danger)">🗑️ 清空列表</button>
-        </div>
-        <div style="margin-bottom:5px; font-size:12px; color:var(--text-sub); display:flex; justify-content:space-between;">
-          <span>当前列表共有 <b id="currentRuleCount">0</b> 条规则</span>
-          <span style="color:var(--primary)">💡 提示：双击域名可直接修改</span>
-        </div>
-        <div class="rule-list" id="ruleListContainer"></div>
-      </div>
-    </div>
-
-    <div id="section-gfw" class="section">
-      <h2>GFWList 规则库</h2>
-      <div class="card">
-        <div class="form-group">
-          <label>更新源 (Source)</label>
-          <select id="gfwSourceSelect">
-            <option value="https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt">GitHub Raw (官方源)</option>
-            <option value="https://cdn.jsdelivr.net/gh/gfwlist/gfwlist/gfwlist.txt">jsDelivr CDN (国内推荐)</option>
-            <option value="custom">自定义 URL...</option>
-          </select>
-          <input type="text" id="gfwUrlInput" placeholder="输入自定义 GFWList 地址" style="display:none; margin-top:10px;">
-        </div>
-        <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-size:13px; margin-bottom:4px;">当前状态: <span id="gfwStatus">...</span></div>
-            <div class="help-text">GFWList 包含了数千个被墙域名，配合自定义规则使用效果更佳。</div>
+            <button id="addServerBtn" class="btn btn-primary btn-sm">➕ 新建服务器</button>
           </div>
-          <button id="updateGfwBtn" class="btn btn-success">🔄 立即更新</button>
+        </h2>
+        <div id="latencyResult" style="margin-bottom:15px; padding:10px; border-radius:8px; background:var(--bg-body); display:none; text-align:center;"></div>
+        
+        <div id="serverListContainer"></div>
+
+        <div id="serverForm" class="card" style="display:none; margin-top:20px; border:2px dashed var(--primary);">
+          <h3 style="margin-top:0;">编辑服务器</h3>
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:15px;">
+            <div><label>备注名称</label><input type="text" id="editName" placeholder="例如: 香港节点 01"></div>
+            <div><label>协议类型</label><select id="editScheme"><option value="SOCKS5">SOCKS5</option><option value="HTTP">HTTP</option></select></div>
+          </div>
+          <div style="display:grid; grid-template-columns: 3fr 1fr; gap:15px; margin-bottom:20px;">
+            <div><label>服务器地址 (IP/域名)</label><input type="text" id="editHost" placeholder="127.0.0.1"></div>
+            <div><label>端口</label><input type="number" id="editPort" placeholder="1080"></div>
+          </div>
+          <div style="text-align:right;">
+            <button id="cancelServerItemBtn" class="btn btn-ghost">取消</button>
+            <button id="saveServerItemBtn" class="btn btn-primary">保存配置</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div id="section-sync" class="section">
-      <h2>云端同步 <span id="syncStatusBadge" class="status-badge none">未同步</span></h2>
-      <div class="info-tip">
-        ℹ️ <b>同步范围：</b> 服务器配置、代理/直连规则列表、GFWList 地址、基础设置。<br>
-        🔒 <b>隐私保护：</b> GitHub Token 和 WebDAV 账号密码 <b>不会</b> 被同步，仅保存在本地。
-      </div>
-      <div class="card">
-        <div class="form-group" style="display:flex; gap:15px; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
-          <div style="flex:1">
-            <label>同步方式</label>
-            <select id="syncProvider">
-              <option value="github">GitHub Gist (推荐)</option>
-              <option value="webdav">WebDAV</option>
+      <!-- 规则管理 -->
+      <div id="section-rules" class="section">
+        <h2>规则管理</h2>
+        <div class="card">
+          <div style="display:flex; margin-bottom:15px;">
+             <select id="ruleTypeSelect" style="flex:1; padding:12px; font-weight:bold; border-radius:var(--radius-sm); border-color:var(--border);">
+              <option value="userRules">🚀 黑名单 (强制代理域名)</option>
+              <option value="userWhitelist">🛡️ 白名单 (强制直连域名)</option>
             </select>
           </div>
-          <div style="flex:1">
-            <label>自动同步</label>
-            <div style="margin-top:8px;">
-              <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
-                <input type="checkbox" id="autoSync"> 开启自动同步 (每24小时)
-              </label>
-            </div>
+          
+          <div class="rule-toolbar">
+            <input type="text" id="ruleSearch" placeholder="🔍 搜索域名..." style="flex:1; background:var(--bg-card);">
+            <input type="text" id="ruleAddInput" placeholder="输入域名回车添加" style="flex:1; background:var(--bg-card);">
+            <button id="ruleAddBtn" class="btn btn-primary btn-sm">添加</button>
           </div>
-        </div>
-        <div id="panelGithub">
-          <div class="form-group">
-            <label>GitHub Token</label>
-            <input type="password" id="gitToken" placeholder="ghp_xxxxxxxxxxxx...">
-            <div class="help-text">
-              1. 登录 GitHub -> Settings -> Developer settings -> Tokens (classic)。<br>
-              2. 勾选 <b>gist</b> 权限生成 Token。<br>
-              3. 粘贴到上方。这是你的私钥，请勿泄露。
-            </div>
+          
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px; color:var(--text-sub);">
+            <span>共 <b id="currentRuleCount">0</b> 条规则</span>
+            <span>操作: 双击修改 | 右侧删除</span>
           </div>
-        </div>
-        <div id="panelWebdav" style="display:none;">
-          <div class="form-group">
-            <label>WebDAV 地址</label>
-            <input type="text" id="davUrl" placeholder="https://dav.jianguoyun.com/dav/">
-          </div>
-          <div style="display:flex; gap:10px;">
-            <div style="flex:1" class="form-group"><label>用户名</label><input type="text" id="davUser"></div>
-            <div style="flex:1" class="form-group"><label>密码</label><input type="password" id="davPass"></div>
-          </div>
-        </div>
-        <div style="text-align:right; margin-top:20px;">
-          <button id="cloudDownloadBtn" class="btn btn-ghost">⬇️ 下载覆盖本地</button>
-          <button id="cloudUploadBtn" class="btn btn-primary">☁️ 上传当前配置</button>
-        </div>
-      </div>
-    </div>
 
-    <div id="section-about" class="section">
-      <h2>通用设置</h2>
-      <div class="card">
-        <div class="form-group">
-          <label>界面外观</label>
-          <select id="themeSelect">
-            <option value="system">🖥️ 跟随系统</option>
-            <option value="light">🌞 浅色模式</option>
-            <option value="dark">🌙 深色模式</option>
-          </select>
+          <div class="rule-list" id="ruleListContainer"></div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:15px;">
+            <div style="display:flex; gap:10px;">
+              <button id="ruleExportBtn" class="btn btn-ghost btn-sm">📤 导出</button>
+              <button id="ruleImportBtn" class="btn btn-ghost btn-sm">📥 导入</button>
+              <input type="file" id="ruleFile" style="display:none" accept=".json">
+            </div>
+            <button id="ruleClearBtn" class="btn btn-ghost btn-sm" style="color:var(--danger)">🗑️ 清空列表</button>
+          </div>
         </div>
       </div>
-      <div class="card" style="border-color:var(--danger);">
-        <h3 style="color:var(--danger); margin-top:0;">危险区域</h3>
-        <p class="help-text">清空所有数据并重置插件。</p>
-        <button id="resetAppBtn" class="btn btn-danger">🔥 重置所有数据</button>
+
+      <!-- GFWList -->
+      <div id="section-gfw" class="section">
+        <h2>GFWList 智能规则库</h2>
+        <div class="card">
+          <div class="info-tip">
+             💡 GFWList 是一个维护在 GitHub 上的被墙网站列表。启用后，插件会自动判断访问的域名是否在列表中，在则代理，不在则直连。
+          </div>
+          <div class="form-group">
+            <label>规则源地址</label>
+            <select id="gfwSourceSelect">
+              <option value="https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt">GitHub Official (需要代理)</option>
+              <option value="https://cdn.jsdelivr.net/gh/gfwlist/gfwlist/gfwlist.txt">jsDelivr CDN (推荐，速度快)</option>
+              <option value="custom">自定义 URL...</option>
+            </select>
+            <input type="text" id="gfwUrlInput" placeholder="输入 URL" style="display:none; margin-top:10px;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-body); padding:15px; border-radius:var(--radius-sm);">
+            <div>
+              <div style="font-weight:600; font-size:14px;">当前状态</div>
+              <div id="gfwStatus" style="font-size:13px; color:var(--text-sub); margin-top:4px;">未加载</div>
+            </div>
+            <button id="updateGfwBtn" class="btn btn-success">🔄 立即更新规则库</button>
+          </div>
+        </div>
       </div>
+
+      <!-- 云同步 -->
+      <div id="section-sync" class="section">
+        <h2>云端同步 <span id="syncStatusBadge" class="server-tag" style="background:#ccc; color:#fff; margin-left:10px;">未同步</span></h2>
+        <div class="card">
+          <div class="form-group">
+            <label>同步服务提供商</label>
+            <div style="display:flex; gap:15px;">
+              <select id="syncProvider" style="flex:1">
+                <option value="github">GitHub Gist (推荐，稳定免费)</option>
+                <option value="webdav">WebDAV (坚果云/Nextcloud)</option>
+              </select>
+              <div style="display:flex; align-items:center;">
+                <input type="checkbox" id="autoSync" style="width:auto; margin-right:8px;">
+                <span style="font-size:13px;">自动同步 (每24h)</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-tip" style="background:var(--bg-body); color:var(--text-sub); border:1px solid var(--border);">
+            🔒 安全提示：上传的数据将经过 <b>Base64 编码</b> 混淆处理，防止在云端以明文形式直接读取。此方式无需密码，即使更换账号或设备也能轻松恢复数据。
+          </div>
+
+          <div id="panelGithub" style="background:var(--bg-body); padding:20px; border-radius:var(--radius-sm); margin-bottom:20px;">
+            <div class="form-group">
+              <label>GitHub Token (Personal Access Token)</label>
+              <input type="password" id="gitToken" placeholder="ghp_xxxxxxxxxxxx...">
+              <p class="help-text">请在 GitHub Settings -> Developer Settings 生成 Token，勾选 'gist' 权限。</p>
+            </div>
+          </div>
+
+          <div id="panelWebdav" style="display:none; background:var(--bg-body); padding:20px; border-radius:var(--radius-sm); margin-bottom:20px;">
+            <div class="form-group"><label>服务器地址</label><input type="text" id="davUrl" placeholder="https://dav.jianguoyun.com/dav/"></div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1"><label>账号</label><input type="text" id="davUser"></div>
+              <div style="flex:1"><label>密码</label><input type="password" id="davPass"></div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:center; gap:20px;">
+             <button id="cloudUploadBtn" class="btn btn-primary" style="width:160px; justify-content:center;">⬆️ 上传配置</button>
+             <button id="cloudDownloadBtn" class="btn btn-ghost" style="width:160px; justify-content:center;">⬇️ 下载覆盖</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 通用设置 -->
+      <div id="section-about" class="section">
+        <h2>通用设置</h2>
+        <div class="card">
+          <div class="form-group">
+            <label>界面主题</label>
+            <select id="themeSelect">
+              <option value="system">🖥️ 跟随系统设置</option>
+              <option value="light">🌞 浅色模式</option>
+              <option value="dark">🌙 深色模式</option>
+            </select>
+          </div>
+        </div>
+        <div class="card" style="border-color:rgba(239, 68, 68, 0.3);">
+          <h3 style="color:var(--danger); margin-top:0;">危险区域</h3>
+          <p class="help-text" style="margin-bottom:15px;">如果您遇到严重错误，可以尝试重置扩展。这将清除所有本地规则和服务器配置。</p>
+          <button id="resetAppBtn" class="btn btn-danger">🔥 重置所有数据</button>
+        </div>
+      </div>
+
     </div>
   </main>
 

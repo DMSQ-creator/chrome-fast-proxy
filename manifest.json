@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FastProxy - 终极代理工具",
-  "version": "7.3.5",
+  "version": "7.3.11",
   "description": "专业级代理管理工具。支持侧边栏设置、规则管理、双击编辑、云端同步。",
   "permissions": [
     "proxy",
@@ -30,5 +30,4 @@
     "48": "assets/icon.png",
     "128": "assets/icon.png"
   }
-
 }

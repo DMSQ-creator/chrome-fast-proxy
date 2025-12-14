@@ -1,9 +1,8 @@
-// js/options.js - v7.3.4
+// js/options.js - v7.3.11
 
 const DEFAULT_GFWLIST_URL = 'https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt';
 const LATENCY_TEST_URL = 'https://www.google.com/generate_204';
-const CONFIG_FILE_NAME = 'fastproxy_config.json';
-const DAV_DIR_NAME = 'FastProxy';
+const MAX_DISPLAY_RULES = 500;
 
 let currentSection = 'server'; 
 let currentRuleType = 'userRules'; 
@@ -46,6 +45,7 @@ function renderAll() {
   $('#davUrl').value = allData.davUrl || '';
   $('#davUser').value = allData.davUser || '';
   $('#davPass').value = allData.davPass || '';
+  
   $('#syncProvider').value = allData.syncProvider || 'github';
   $('#autoSync').checked = allData.autoSync || false;
   switchSyncPanel();
@@ -70,13 +70,7 @@ function initServerModule() {
   $('#addServerBtn').onclick = () => openServerEdit(null);
   $('#cancelServerItemBtn').onclick = closeServerEdit;
   $('#saveServerItemBtn').onclick = saveServer;
-  // 在测试逻辑前增加判断（可选）
-chrome.proxy.settings.get({}, (config) => {
-    if (config.value.mode === 'direct') {
-        alert("注意：当前为直连模式，此测试仅代表本地网络连接 Google 的速度，不代表代理服务器速度。请先切换到代理模式。");
-    }
-    // ... 执行 fetch
-});
+  
   $('#testLatencyBtn').onclick = async () => {
     const resEl = $('#latencyResult');
     resEl.style.display = 'block';
@@ -241,15 +235,27 @@ function initRuleModule() {
   };
 }
 
+function checkConflict(domain) {
+  const otherType = currentRuleType === 'userRules' ? 'userWhitelist' : 'userRules';
+  const otherList = allData[otherType] || [];
+  if (otherList.includes(domain)) {
+    const typeName = otherType === 'userRules' ? '黑名单' : '白名单';
+    return `⚠️ 注意：该域名已存在于【${typeName}】中，可能会导致规则冲突！`;
+  }
+  return null;
+}
+
 function renderRuleList() {
   const list = allData[currentRuleType] || [];
   const keyword = $('#ruleSearch').value.trim().toLowerCase();
   const filtered = list.filter(d => d.includes(keyword)).reverse();
   $('#currentRuleCount').textContent = list.length;
+  
   const container = $('#ruleListContainer');
   container.innerHTML = '';
+  
+  const displayList = filtered.slice(0, MAX_DISPLAY_RULES);
   const fragment = document.createDocumentFragment();
-  const displayList = filtered.slice(0, 300);
   
   displayList.forEach(domain => {
     const div = document.createElement('div');
@@ -268,12 +274,13 @@ function renderRuleList() {
     fragment.appendChild(div);
   });
   
-  if (filtered.length > 300) {
+  if (filtered.length > MAX_DISPLAY_RULES) {
     const more = document.createElement('div');
     more.style.padding = '10px'; more.style.textAlign = 'center'; more.style.color = '#999';
-    more.textContent = `... 还有 ${filtered.length - 300} 条未显示，请搜索 ...`;
+    more.textContent = `... 已显示前 ${MAX_DISPLAY_RULES} 条，剩余 ${filtered.length - MAX_DISPLAY_RULES} 条请使用搜索查找 ...`;
     fragment.appendChild(more);
   }
+  
   if (filtered.length === 0) container.innerHTML = '<div style="padding:40px; text-align:center; color:#999">暂无规则</div>';
   else container.appendChild(fragment);
 }
@@ -284,13 +291,18 @@ function enableRuleEdit(div, oldDomain) {
   const input = document.createElement('input');
   input.type = 'text'; input.value = oldDomain; input.style.width = '300px'; input.style.fontFamily = 'monospace';
   span.replaceWith(input); input.focus();
+  
   const save = () => {
     const newDomain = input.value.trim().toLowerCase();
     if (newDomain && newDomain !== oldDomain) {
       const type = currentRuleType;
       let list = allData[type] || [];
-      if (list.includes(newDomain)) { alert("域名已存在"); renderRuleList(); }
-      else {
+      if (list.includes(newDomain)) { 
+        alert("域名已存在"); 
+        renderRuleList(); 
+      } else {
+        const conflictMsg = checkConflict(newDomain);
+        if (conflictMsg) alert(conflictMsg);
         const idx = list.indexOf(oldDomain);
         if (idx !== -1) {
           list[idx] = newDomain;
@@ -309,6 +321,8 @@ function addRuleFromInput() {
   const type = currentRuleType;
   let list = allData[type] || [];
   if (!list.includes(val)) {
+    const conflictMsg = checkConflict(val);
+    if (conflictMsg && !confirm(conflictMsg + "\n\n是否继续添加？")) return;
     list.push(val);
     chrome.storage.local.set({ [type]: list }, async () => { await loadAllData(); input.value = ''; renderRuleList(); showToast("添加成功"); });
   } else showToast("规则已存在");
@@ -338,16 +352,17 @@ function initGfwModule() {
     if (!url) return alert("请输入 URL");
     $('#updateGfwBtn').textContent = "⏳..."; $('#updateGfwBtn').disabled = true;
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("下载失败");
-      const text = await res.text();
-      const decoded = atob(text.replace(/\s/g, ''));
-      const domains = decoded.split(/\r?\n/).filter(l => l && !l.startsWith('!') && !l.startsWith('[')).map(l => l.replace(/^\|\|/, '').replace(/^https?:\/\//, '').split('/')[0]).filter(d => d.includes('.'));
-      const now = new Date().toLocaleString();
-      chrome.storage.local.set({ gfwDomains: domains, ruleCount: domains.length, lastUpdate: now, gfwlistUrl: url }, async () => {
-        await loadAllData(); updateGfwStatus(domains.length, now); showToast("GFWList 更新成功");
-        $('#updateGfwBtn').textContent = "🔄 立即更新"; $('#updateGfwBtn').disabled = false;
-      });
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("下载失败");
+          const text = await res.text();
+          const decoded = atob(text.replace(/\s/g, ''));
+          const domainSet = new Set(decoded.split(/\r?\n/).filter(l => l && !l.startsWith('!') && !l.startsWith('[')).map(l => l.replace(/^\|\|/, '').replace(/^https?:\/\//, '').split('/')[0]).filter(d => d.includes('.')));
+          const domains = Array.from(domainSet); 
+          const now = new Date().toLocaleString();
+          chrome.storage.local.set({ gfwDomains: domains, ruleCount: domains.length, lastUpdate: now, gfwlistUrl: url }, async () => {
+            await loadAllData(); updateGfwStatus(domains.length, now); showToast("GFWList 更新成功");
+            $('#updateGfwBtn').textContent = "🔄 立即更新"; $('#updateGfwBtn').disabled = false;
+          });
     } catch(e) { alert("更新失败: " + e.message); $('#updateGfwBtn').textContent = "❌ 失败"; $('#updateGfwBtn').disabled = false; }
   };
 }
@@ -398,7 +413,7 @@ function updateSyncPanel() {
 }
 function saveDav() { chrome.storage.local.set({ davUrl: $('#davUrl').value, davUser: $('#davUser').value, davPass: $('#davPass').value }); }
 
-function switchSyncPanel() { updateSyncPanel(); } // alias
+function switchSyncPanel() { updateSyncPanel(); } 
 
 // --- 通用 ---
 function initGeneralModule() {

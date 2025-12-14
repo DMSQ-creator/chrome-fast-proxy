@@ -1,80 +1,116 @@
+<!-- html/rules.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>规则管理器 - FastProxy</title>
   <style>
-    /* 复用一套配色变量，保证主题统一 */
     :root {
-      --bg-color: #f5f7fa; --card-bg: #ffffff; --text-color: #333333; --border-color: #dddddd;
-      --input-bg: #ffffff; --sub-text: #666666; --hover-bg: #f9f9f9; 
-      --primary: #2196F3; --success: #4CAF50; --danger: #f44336;
+      --primary: #6366f1; --bg: #f3f4f6; --card-bg: #ffffff;
+      --text: #1f2937; --sub-text: #6b7280; --border: #e5e7eb;
+      --danger: #ef4444; --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
     html[data-theme="dark"] {
-      --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --border-color: #333333;
-      --input-bg: #2d2d2d; --sub-text: #aaaaaa; --hover-bg: #2c2c2c;
-      --primary: #64b5f6; --success: #81c784; --danger: #e57373;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --border-color: #333333;
-        --input-bg: #2d2d2d; --sub-text: #aaaaaa; --hover-bg: #2c2c2c;
-        --primary: #64b5f6; --success: #81c784; --danger: #e57373;
-      }
+      --primary: #818cf8; --bg: #111827; --card-bg: #1f2937;
+      --text: #f9fafb; --sub-text: #9ca3af; --border: #374151;
     }
 
-    body { background: var(--bg-color); color: var(--text-color); font-family: -apple-system, sans-serif; margin: 0; padding: 20px; }
-    .container { max-width: 1000px; margin: 0 auto; background: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color); display: flex; flex-direction: column; height: 90vh; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Inter', sans-serif; margin: 0; padding: 30px;
+      display: flex; justify-content: center; height: 100vh; box-sizing: border-box;
+    }
+
+    .container {
+      width: 100%; max-width: 900px;
+      background: var(--card-bg); border-radius: 16px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    /* Header */
+    .header {
+      padding: 24px 30px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--card-bg);
+    }
+    h1 { margin: 0; font-size: 22px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     
-    .header { padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-    h1 { margin: 0; font-size: 20px; }
+    /* Tabs */
+    .tabs { display: flex; background: var(--bg); padding: 0 20px; gap: 5px; padding-top: 10px; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 12px 24px; cursor: pointer; font-weight: 600; color: var(--sub-text);
+      border-radius: 10px 10px 0 0; background: transparent; transition: 0.2s; font-size: 14px;
+    }
+    .tab:hover { color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+    .tab.active { color: var(--primary); background: var(--card-bg); box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); border-bottom: none; }
+
+    /* Toolbar */
+    .toolbar { padding: 20px 30px; background: var(--card-bg); display: flex; gap: 15px; align-items: center; border-bottom: 1px solid var(--border); }
     
-    .tabs { display: flex; background: var(--bg-color); padding: 0 20px; border-bottom: 1px solid var(--border-color); }
-    .tab { padding: 15px 20px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; color: var(--sub-text); transition: 0.2s; }
-    .tab:hover { color: var(--primary); }
-    .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--card-bg); }
+    input {
+      flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 14px; outline: none; transition: 0.2s;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); background: var(--card-bg); }
+
+    button {
+      padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer;
+      font-weight: 600; color: white; transition: 0.2s; font-size: 14px;
+    }
+    .btn-primary { background: var(--primary); }
+    .btn-primary:hover { background: #4f46e5; transform: translateY(-1px); }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid transparent; }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* List */
+    .rule-list { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; background: var(--bg); }
+    .rule-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 24px; background: var(--card-bg); border-bottom: 1px solid var(--border);
+      transition: 0.1s; cursor: default;
+    }
+    .rule-item:hover { background: #f9fafb; padding-left: 28px; } /* Hover shift effect */
+    html[data-theme="dark"] .rule-item:hover { background: #2d3748; }
     
-    .toolbar { padding: 15px 20px; display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-color); align-items: center; }
-    input { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 4px; flex: 1; font-size: 14px; }
-    button { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; color: white; transition: 0.2s; white-space: nowrap; }
-    .btn-primary { background: var(--primary); } .btn-danger { background: var(--danger); }
-    .btn-ghost { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
+    .rule-domain { font-family: 'Monaco', 'Consolas', monospace; font-size: 14px; color: var(--text); }
     
-    .rule-list { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
-    .rule-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border-color); transition: 0.1s; }
-    .rule-item:hover { background: var(--hover-bg); }
-    .rule-domain { font-family: monospace; font-size: 14px; }
-    .rule-actions { opacity: 0; transition: 0.2s; }
-    .rule-item:hover .rule-actions { opacity: 1; }
-    .icon-btn { background: none; border: none; cursor: pointer; font-size: 16px; padding: 5px; color: var(--sub-text); }
-    .icon-btn:hover { color: var(--danger); }
-    
-    .empty-state { text-align: center; padding: 50px; color: var(--sub-text); }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; font-size: 16px; padding: 8px;
+      color: var(--sub-text); opacity: 0; transition: 0.2s; border-radius: 4px;
+    }
+    .rule-item:hover .icon-btn { opacity: 1; }
+    .icon-btn:hover { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+    .empty-state { text-align: center; padding: 60px; color: var(--sub-text); display: flex; flex-direction: column; align-items: center; gap: 10px; }
   </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>规则管理器</h1>
-    <div style="font-size:12px; color:var(--sub-text)">支持拖拽 JSON 文件到此窗口导入</div>
+    <h1><span>⚡</span> 规则管理器</h1>
+    <div style="font-size:12px; color:var(--sub-text)">提示: 支持拖拽 .json 文件直接导入</div>
   </div>
   
   <div class="tabs">
-    <div class="tab active" data-type="userRules">📝 黑名单 (强制代理)</div>
-    <div class="tab" data-type="userWhitelist">🛡️ 白名单 (强制直连)</div>
+    <div class="tab active" data-type="userRules">📝 强制代理 (黑名单)</div>
+    <div class="tab" data-type="userWhitelist">🛡️ 强制直连 (白名单)</div>
   </div>
   
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="🔍 搜索域名...">
-    <input type="text" id="addInput" placeholder="输入域名并回车添加" style="flex:0.5">
-    <button id="addBtn" class="btn-primary">添加</button>
-    <div style="width:1px; height:20px; background:var(--border-color); margin:0 10px;"></div>
-    <button id="exportBtn" class="btn-ghost">导出当前列表</button>
-    <button id="clearBtn" class="btn-danger">清空列表</button>
+    <input type="text" id="addInput" placeholder="输入域名 (如: google.com)" style="flex:1.5">
+    <button id="addBtn" class="btn-primary">添加规则</button>
+    <div style="width:1px; height:24px; background:var(--border); margin:0 5px;"></div>
+    <button id="exportBtn" class="btn-ghost">导出</button>
+    <button id="clearBtn" class="btn-danger">清空</button>
   </div>
   
   <ul class="rule-list" id="ruleList">
-    <!-- 动态生成 -->
+    <!-- JS 生成 -->
   </ul>
 </div>
 

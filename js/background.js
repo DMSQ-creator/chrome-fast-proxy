@@ -1,4 +1,4 @@
-// js/background.js - v7.3.4
+// js/background.js - v7.3.11 (Base64 Encoding/Obfuscation)
 
 let cachedUserRules = new Set();
 let cachedUserWhitelist = new Set();
@@ -10,7 +10,23 @@ let uploadDebounceTimer = null;
 const CONFIG_FILE_NAME = 'fastproxy_config.json';
 const DAV_DIR_NAME = 'FastProxy';
 
-// 初始化
+// --- 初始化 Promise ---
+let initReadyResolver = null;
+const initPromise = new Promise((resolve) => {
+  initReadyResolver = resolve;
+});
+
+// --- 工具函数：防抖 ---
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+// --- 初始化与监听 ---
+
 chrome.runtime.onInstalled.addListener(async (d) => {
   if (d.reason === 'install') {
     const items = await chrome.storage.local.get(['serverList']);
@@ -23,14 +39,17 @@ chrome.runtime.onInstalled.addListener(async (d) => {
   updateCacheAndApply();
 });
 
+const debouncedUpdate = debounce(updateCacheAndApply, 500);
+
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local') {
-    // 只要影响代理规则或服务器的变量变了，就重新应用
     if (changes.userRules || changes.userWhitelist || changes.gfwDomains || 
         changes.serverList || changes.activeServerId || changes.tempRules) {
-      updateCacheAndApply();
+      debouncedUpdate();
       if (!isSyncing && (changes.userRules || changes.userWhitelist || changes.serverList)) {
-        chrome.storage.local.get(['autoSync'], (s) => { if (s.autoSync) triggerAutoUpload(); });
+        chrome.storage.local.get(['autoSync'], (s) => { 
+          if (s.autoSync) triggerAutoUpload(); 
+        });
       }
     }
   }
@@ -39,18 +58,29 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 chrome.runtime.onMessage.addListener((m, s, sendResponse) => {
   if (m.type === 'REFRESH_PROXY') {
     updateCacheAndApply();
+  } else if (m.type === 'UPDATE_ICON') {
+    updateIconForActiveTab();
   } else if (m.type === 'MANUAL_SYNC_UPLOAD') {
-    performCloudUpload().then(t => sendResponse({success:true, time:t})).catch(e => sendResponse({success:false, error:e.message}));
+    performCloudUpload()
+      .then(t => sendResponse({success:true, time:t}))
+      .catch(e => sendResponse({success:false, error:e.message}));
     return true; 
   } else if (m.type === 'MANUAL_SYNC_DOWNLOAD') {
-    performCloudDownload().then(t => sendResponse({success:true, time:t})).catch(e => sendResponse({success:false, error:e.message}));
+    performCloudDownload()
+      .then(t => sendResponse({success:true, time:t}))
+      .catch(e => sendResponse({success:false, error:e.message}));
     return true; 
   }
 });
 
+updateCacheAndApply();
+
+// --- 核心逻辑 ---
+
 function normalizeSet(list) {
   if (!list) return new Set();
   return new Set(list.map(d => {
+    if (!d) return null;
     let domain = d.toLowerCase().trim();
     if (domain.startsWith('*.')) domain = domain.substring(2);
     else if (domain.startsWith('.')) domain = domain.substring(1);
@@ -64,8 +94,12 @@ function updateCacheAndApply() {
     cachedUserWhitelist = normalizeSet(items.userWhitelist);
     cachedGfwDomains = normalizeSet(items.gfwDomains);
     cachedTempRules = normalizeSet(items.tempRules);
-    updateIconForActiveTab();
     applyProxySettings(items);
+    if (initReadyResolver) {
+      initReadyResolver();
+      initReadyResolver = null;
+    }
+    updateIconForActiveTab();
   });
 }
 
@@ -116,59 +150,199 @@ function applyProxySettings(items) {
   });
 }
 
-// 同步核心 (含 WebDAV MKCOL 405 修复)
-async function bgWebdavUpload(i,d){
-  const a='Basic '+btoa(i.davUser+':'+i.davPass);
-  const r=i.davUrl.endsWith('/')?i.davUrl:i.davUrl+'/';
-  await fetch(r+DAV_DIR_NAME+'/',{method:'MKCOL',headers:{'Authorization':a}}); // 忽略 405
-  const res = await fetch(r+DAV_DIR_NAME+'/'+CONFIG_FILE_NAME,{method:'PUT',headers:{'Authorization':a,'Content-Type':'application/json'},body:JSON.stringify(d)});
-  if(!res.ok) throw new Error("Upload failed: " + res.status);
+// --- 同步模块 (Base64 编码) ---
+
+async function bgWebdavUpload(i, d){
+  const a = 'Basic ' + btoa(i.davUser + ':' + i.davPass);
+  const r = i.davUrl.endsWith('/') ? i.davUrl : i.davUrl + '/';
+  try { await fetch(r + DAV_DIR_NAME + '/', {method:'MKCOL', headers:{'Authorization':a}}); } catch(e){}
+  const res = await fetch(r + DAV_DIR_NAME + '/' + CONFIG_FILE_NAME, {
+    method: 'PUT',
+    headers: { 'Authorization': a, 'Content-Type': 'application/json' },
+    body: JSON.stringify(d)
+  });
+  if(!res.ok) throw new Error("WebDAV Upload failed: " + res.status);
 }
 
-// 缓存刷新 (含 Gist Raw URL 缓存修复)
 async function bgGithubDownload(t){
-  const g=await ghFetch('https://api.github.com/gists','GET',t);
-  const target=g.find(x=>x.files&&x.files[CONFIG_FILE_NAME]);
-  if(!target) throw new Error("No config found");
-  const r=await fetch(target.files[CONFIG_FILE_NAME].raw_url + '?t=' + Date.now());
+  const g = await ghFetch('https://api.github.com/gists', 'GET', t);
+  const target = g.find(x => x.files && x.files[CONFIG_FILE_NAME]);
+  if(!target) throw new Error("No config found in Gist");
+  const r = await fetch(target.files[CONFIG_FILE_NAME].raw_url + '?t=' + Date.now());
   return await r.json();
 }
 
-async function performCloudUpload(){ /* ... 同前 ... */ }
-async function performCloudDownload(){ /* ... 同前 ... */ }
-function triggerAutoUpload(){if(uploadDebounceTimer)clearTimeout(uploadDebounceTimer);uploadDebounceTimer=setTimeout(()=>performCloudUpload(),10000)}
-function ghFetch(u,m,t,b){ /* ... 同前 ... */ }
+async function performCloudUpload(){
+  isSyncing = true;
+  try {
+    const items = await chrome.storage.local.get(null);
+    const { userRules, userWhitelist, serverList, activeServerId, gfwlistUrl, theme, autoSync, syncProvider } = items;
+    
+    // 原始 Payload
+    const rawPayload = { userRules, userWhitelist, serverList, activeServerId, gfwlistUrl, theme, autoSync, syncProvider, timestamp: Date.now() };
+    
+    // 【Base64 编码混淆】 (支持 UTF-8)
+    const jsonStr = JSON.stringify(rawPayload);
+    const encodedStr = btoa(unescape(encodeURIComponent(jsonStr)));
+    
+    const finalBody = { encoded: true, content: encodedStr };
 
-// 图标管理
-function updateIconForActiveTab(){
+    if (items.syncProvider === 'webdav') {
+      if (!items.davUrl) throw new Error("WebDAV URL not set");
+      await bgWebdavUpload(items, finalBody);
+    } else {
+      if (!items.gitToken) throw new Error("GitHub Token not set");
+      let gistId = null;
+      try {
+        const gists = await ghFetch('https://api.github.com/gists', 'GET', items.gitToken);
+        const exist = gists.find(x => x.files && x.files[CONFIG_FILE_NAME]);
+        if (exist) gistId = exist.id;
+      } catch(e) {}
+
+      const body = {
+        description: "FastProxy Config Sync (Obfuscated)",
+        public: false,
+        files: { [CONFIG_FILE_NAME]: { content: JSON.stringify(finalBody) } }
+      };
+
+      if (gistId) {
+        await ghFetch(`https://api.github.com/gists/${gistId}`, 'PATCH', items.gitToken, body);
+      } else {
+        await ghFetch('https://api.github.com/gists', 'POST', items.gitToken, body);
+      }
+    }
+    const time = new Date().toLocaleString();
+    await chrome.storage.local.set({ lastSyncTime: time });
+    return time;
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function performCloudDownload(){
+  isSyncing = true;
+  try {
+    const items = await chrome.storage.local.get(['syncProvider', 'gitToken', 'davUrl', 'davUser', 'davPass']);
+    let data = null;
+    if (items.syncProvider === 'webdav') {
+      if (!items.davUrl) throw new Error("WebDAV URL not set");
+      const a = 'Basic ' + btoa(items.davUser + ':' + items.davPass);
+      const r = items.davUrl.endsWith('/') ? items.davUrl : items.davUrl + '/';
+      const res = await fetch(r + DAV_DIR_NAME + '/' + CONFIG_FILE_NAME + '?t=' + Date.now(), { headers: { 'Authorization': a } });
+      if (!res.ok) throw new Error("WebDAV Download failed");
+      data = await res.json();
+    } else {
+      if (!items.gitToken) throw new Error("GitHub Token not set");
+      data = await bgGithubDownload(items.gitToken);
+    }
+
+    // 【Base64 解码还原】
+    if (data && data.encoded && data.content) {
+      try {
+        const jsonStr = decodeURIComponent(escape(atob(data.content)));
+        data = JSON.parse(jsonStr);
+      } catch(e) {
+        // 兼容旧版加密数据的容错处理 (如果解不开 Base64，说明可能是旧数据，直接抛弃或尝试读取)
+        // 这里简单处理，如果解析失败，抛出错误
+        throw new Error("配置文件格式不兼容，无法解析。");
+      }
+    }
+
+    if (data) {
+      delete data.gitToken; delete data.davUrl; delete data.davUser; delete data.davPass;
+      delete data.gfwDomains; 
+      await chrome.storage.local.set(data);
+      const time = new Date().toLocaleString();
+      await chrome.storage.local.set({ lastSyncTime: time });
+      return time;
+    }
+  } finally {
+    isSyncing = false;
+  }
+}
+
+function triggerAutoUpload() {
+  if (uploadDebounceTimer) clearTimeout(uploadDebounceTimer);
+  uploadDebounceTimer = setTimeout(() => performCloudUpload().catch(console.error), 10000);
+}
+
+async function ghFetch(url, method, token, body) {
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(`GitHub API Error: ${res.status}`);
+  return await res.json();
+}
+
+function getSafeHostname(urlStr) {
+  if (!urlStr || !urlStr.startsWith('http')) return null;
+  try { return new URL(urlStr).hostname.toLowerCase(); } catch (e) { return null; }
+}
+
+async function updateTabIcon(tabId, url) {
+  const hostname = getSafeHostname(url);
   chrome.proxy.settings.get({}, d => {
     const mode = (d && d.value) ? d.value.mode : 'direct';
-    chrome.tabs.query({active:true, currentWindow:true}, t => {
-      if(t && t[0] && t[0].url) drawIcon(calculateState(t[0].url, mode));
-    });
+    const state = calculateState(hostname, mode);
+    drawIcon(state, tabId);
   });
 }
-function calculateState(u, m){
-  if(m === 'fixed_servers') return {c:"#4CAF50", t:"P"};
-  if(m === 'direct') return {c:"#2196F3", t:"D"};
-  if(m === 'pac_script' && u.startsWith('http')){
-    try {
-      const h = new URL(u).hostname.toLowerCase().replace(/^www\./, '');
-      if(checkSet(h, cachedUserWhitelist)) return {c:"#2196F3", t:"W"};
-      if(checkSet(h, cachedTempRules)) return {c:"#FF9800", t:"T"};
-      if(checkSet(h, cachedUserRules) || checkSet(h, cachedGfwDomains)) return {c:"#4CAF50", t:"A"};
-    } catch(e){}
-  }
-  return {c:"#9E9E9E", t:"A"};
-}
-function checkSet(h, s) { if(!s) return false; if(s.has(h)) return true; var p=h.indexOf('.'); while(p!==-1){ if(s.has(h.substring(p+1))) return true; p=h.indexOf('.',p+1); } return false; }
-function drawIcon(s){
-  const c = new OffscreenCanvas(32,32);
-  const x = c.getContext('2d');
-  x.fillStyle = s.c; x.beginPath(); x.arc(16,16,16,0,Math.PI*2); x.fill();
-  x.fillStyle = "#fff"; x.font = "bold 20px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s.t, 16, 17);
-  chrome.action.setIcon({imageData: x.getImageData(0,0,32,32)});
+
+function updateIconForActiveTab(){
+  chrome.tabs.query({active:true, currentWindow:true}, t => {
+    if(t && t[0] && t[0].id && t[0].url) {
+      updateTabIcon(t[0].id, t[0].url);
+    }
+  });
 }
 
-chrome.tabs.onActivated.addListener(updateIconForActiveTab);
-chrome.tabs.onUpdated.addListener(updateIconForActiveTab);
+function calculateState(h, m){
+  if(m === 'fixed_servers') return {c:"#4CAF50", t:"P"};
+  if(m === 'direct') return {c:"#2196F3", t:"D"};
+  if(m === 'pac_script'){
+    if (!h) return {c:"#9E9E9E", t:"A"};
+    const cleanH = h.replace(/^www\./, '');
+    if(checkSet(cleanH, cachedUserWhitelist)) return {c:"#2196F3", t:"W"};
+    if(checkSet(cleanH, cachedTempRules)) return {c:"#FF9800", t:"T"};
+    if(checkSet(cleanH, cachedUserRules) || checkSet(cleanH, cachedGfwDomains)) return {c:"#4CAF50", t:"A"};
+    return {c:"#9E9E9E", t:"A"};
+  }
+  return {c:"#9E9E9E", t:"D"};
+}
+
+function checkSet(h, s) { 
+  if (!s || s.size === 0) return false; 
+  if (s.has(h)) return true; 
+  var p = h.indexOf('.'); 
+  while (p !== -1) { 
+    if (s.has(h.substring(p + 1))) return true; 
+    p = h.indexOf('.', p + 1); 
+  } 
+  return false; 
+}
+
+function drawIcon(s, tabId){
+  const c = new OffscreenCanvas(32,32);
+  const x = c.getContext('2d');
+  x.fillStyle = s.c; 
+  x.beginPath(); x.arc(16,16,16,0,Math.PI*2); x.fill();
+  x.fillStyle = "#fff"; x.font = "bold 20px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s.t, 16, 17);
+  const imageData = x.getImageData(0,0,32,32);
+  chrome.action.setIcon({ imageData: imageData, tabId: tabId });
+}
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (tab.url) { await initPromise; updateTabIcon(tabId, tab.url); }
+});
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  await initPromise;
+  chrome.tabs.get(activeInfo.tabId, (tab) => { if (tab && tab.url) updateTabIcon(tab.id, tab.url); });
+});

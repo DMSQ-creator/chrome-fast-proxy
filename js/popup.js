@@ -1,4 +1,4 @@
-// js/popup.js - v7.3.4 (Stable Layout)
+// js/popup.js - v7.3.11 (Stable Layout & Icon Fix)
 
 const els = {
   serverSelect: document.getElementById('serverSelect'),
@@ -20,13 +20,9 @@ const els = {
 let currentTabDomain = '';
 let currentMode = 'direct';
 
-// 1. 立即加载配置 (优先应用主题)
 loadBaseConfig();
-
-// 2. 并行分析标签页
 analyzeCurrentTab();
 
-// 3. 监听变化 (实时同步)
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') {
     loadBaseConfig(); 
@@ -36,18 +32,15 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 function loadBaseConfig() {
   chrome.storage.local.get(null, (items) => {
-    // 强制应用主题
     const theme = items.theme || 'system';
     const doc = document.documentElement;
     if (theme === 'dark') doc.setAttribute('data-theme', 'dark');
     else if (theme === 'light') doc.setAttribute('data-theme', 'light');
     else doc.removeAttribute('data-theme');
 
-    // 渲染服务器
     const servers = items.serverList || [];
     const activeId = items.activeServerId;
     
-    // Diff 逻辑防止重绘闪烁
     const currentOptions = Array.from(els.serverSelect.options).map(o => o.value + o.text).join('|');
     const newOptions = servers.map(s => s.id + s.name).join('|');
     
@@ -72,7 +65,6 @@ function loadBaseConfig() {
       els.serverSelect.value = activeId;
     }
 
-    // 更新模式 UI
     chrome.proxy.settings.get({}, (d) => {
       if (d && d.value) {
         currentMode = d.value.mode;
@@ -85,14 +77,17 @@ function loadBaseConfig() {
 function analyzeCurrentTab() {
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
     const tab = tabs[0];
-    if (tab && tab.url && tab.url.startsWith('http')) {
+    if (tab && tab.url) {
       try {
+        if (!tab.url.startsWith('http')) throw new Error("Not http");
         const url = new URL(tab.url);
         currentTabDomain = url.hostname.toLowerCase();
         els.domain.textContent = currentTabDomain;
         els.domainArea.style.display = 'block';
         checkDomainStatusWrapper();
-      } catch (e) { showInvalidPageUI(); }
+      } catch (e) {
+        showInvalidPageUI();
+      }
     } else {
       showInvalidPageUI();
     }
@@ -111,6 +106,10 @@ function showInvalidPageUI() {
   els.domainArea.style.display = 'block';
   els.status.textContent = "无法对此页面设置规则";
   els.statusIcon.textContent = "🚫";
+  
+  const wrapper = document.querySelector('.domain-info');
+  wrapper.className = 'domain-info status-fail';
+  
   els.addRuleBtn.style.display = 'none';
   els.removeBtn.style.display = 'none';
 }
@@ -124,29 +123,40 @@ function checkDomainStatus(items) {
   let text = "未匹配 (直连)";
   let icon = "🛡️";
   let isProxy = false, isWhite = false;
+  let statusClass = "status-direct"; 
 
   if (checkList(whitelist, currentTabDomain)) { 
     text = "强制直连 (白名单)"; 
     icon = "🛡️";
     isWhite = true; 
+    statusClass = "status-direct";
   } 
   else if (checkList(tempRules, currentTabDomain)) { 
     text = "临时代理"; 
     icon = "⏱️";
     isProxy = true; 
+    statusClass = "status-proxy";
   }
   else if (checkList(userRules, currentTabDomain)) { 
     text = "强制代理 (黑名单)"; 
     icon = "🚀";
     isProxy = true; 
+    statusClass = "status-proxy";
   }
   else if (checkList(gfwRules, currentTabDomain)) { 
     text = "匹配 GFWList (自动)"; 
     icon = "🌏";
+    statusClass = "status-proxy";
   } 
 
   els.status.textContent = text;
   els.statusIcon.textContent = icon;
+
+  const wrapper = document.querySelector('.domain-info');
+  if (wrapper) {
+    wrapper.classList.remove('status-proxy', 'status-direct', 'status-fail');
+    wrapper.classList.add(statusClass);
+  }
   
   if (isProxy || isWhite) {
     els.removeBtn.style.display = 'flex'; 
@@ -206,6 +216,8 @@ function applySetting(c, m) {
   chrome.proxy.settings.set({ value: c, scope: 'regular' }, () => { 
     currentMode = m; 
     updateModeUI(m); 
+    chrome.storage.local.get(null, checkDomainStatus);
+    chrome.runtime.sendMessage({type: 'UPDATE_ICON'});
   }); 
 }
 
