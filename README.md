@@ -1,4 +1,12 @@
-# ⚡ FastProxy (终极代理工具)
+# 此仓库已弃用，新版 v7.4 请移步：
+https://github.com/DMSQ-creator/ProxySwitch
+
+
+
+
+
+
+## ⚡ FastProxy (终极代理工具)
 
 FastProxy 是一款基于 Chrome Manifest V3 标准重构的专业级代理管理插件。
 v7.0+ 版本带来了全新的 UI 设计、多服务器管理以及极速的规则匹配引擎。
